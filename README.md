@@ -133,6 +133,4 @@ npm run dev
 | GET | `/api/posts` | 获取帖子列表 | 否 |
 | POST | `/api/posts` | 发布帖子 | 是 |
 
-## 📝 License
 
-MIT License
