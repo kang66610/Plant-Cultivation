@@ -1,6 +1,12 @@
+<div align="center">
+
 # 🌱 Plant-Cultivation
 
+**[中文](README.md) | [English](#-key-features)**
+
 A plant cultivation and care platform — a full-stack application integrating plant encyclopedia, care guides, and community features.
+
+</div>
 
 ## ✨ Key Features
 

@@ -1,8 +1,12 @@
+<div align="center">
+
 # 🌱 Plant-Cultivation
+
+**[中文](#-核心功能) | [English](README.en.md)**
 
 植物培育养护平台 — 一个集植物百科、养护指南、社区交流于一体的全栈应用。
 
-**English Version:** [README.en.md](README.en.md)
+</div>
 
 ## ✨ 核心功能
 
