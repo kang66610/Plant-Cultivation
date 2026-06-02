@@ -1,0 +1,178 @@
+植物名字：
+龟背竹
+绿萝
+虎皮兰
+琴叶榕
+白掌
+芦荟
+吊兰
+金钱树
+橡皮树
+波士顿蕨
+玉树
+薰衣草
+罗勒
+蝴蝶兰
+竹芋
+天堂鸟
+佛珠
+心叶蔓绿绒
+镜面草
+仙人掌（各种）
+散尾葵
+春羽
+铜钱草
+幸福树
+网纹草
+袖珍椰子
+豆瓣绿
+花叶万年青
+酒瓶兰
+合果芋
+绿宝石
+白雪公主
+龙血树
+仙客来
+倒挂金钟
+植物数据结构（共70+字段）
+一、基础信息
+字段	类型	必填	说明	示例
+common_name	字符串	是	中文俗名	龟背竹
+aliases	字符串	否	别名，用顿号分隔	蓬莱蕉、电线兰
+scientific_name	字符串	是	拉丁学名	Monstera deliciosa
+slug	字符串	是	英文短横线，唯一	monstera-deliciosa
+family	字符串	否	中文科名	天南星科
+genus_name	字符串	否	中文属名	龟背竹属
+plant_type	字符串	否	植株品类	草本 / 木本 / 藤本 / 肉质
+growth_cycle	字符串	否	生长周期	一年生 / 二年生 / 多年生
+ornamental_type	字符串	否	观赏分类	观叶 / 观花 / 观果 / 多肉 / 水培
+origin	字符串	否	原产地	中美洲
+description	长文本	否	详细描述（50-100字）	
+short_description	短文本	否	简短描述（20字以内）	
+二、形态特征
+字段	类型	说明	示例
+leaf_shape	字符串	叶片形状	心形至卵形，成熟叶片有深裂和孔洞
+leaf_color	字符串	叶色特征	深绿色，有光泽
+stem_feature	字符串	茎干特征	粗壮绿色茎干，带有气生根
+flower_shape	字符串	花朵形态	佛焰苞花序，白色或乳白色
+flower_color	字符串	花色	白色
+bloom_month	字符串	开花月份/花期	4-7月 / 全年可开花
+fruit_period	字符串	果期	秋季
+overall_shape	长文本	整体外形描述（30-50字）	
+三、光照（已有字段，保留）
+字段	类型	可选值
+light_level	枚举	low / medium / high / bright_direct
+light_hours_min	数字	1-12
+light_hours_max	数字	1-12
+light_description	短文本	光照描述（30-50字）
+四、温度与环境
+字段	类型	说明	示例
+temp_min_celsius	数字	适宜最低温度	18
+temp_max_celsius	数字	适宜最高温度	30
+temp_cold_min	数字	最低耐寒温度	10
+temp_heat_max	数字	最高耐热温度	35
+temp_description	短文本	温度描述	
+summer_dormancy	布尔	是否高温休眠	TRUE / FALSE
+humidity_level	枚举	湿度需求	low / medium / high
+humidity_description	短文本	湿度描述	
+suitable_position	字符串	适宜摆放位置	客厅、书房、明亮窗边
+growth_habit	长文本	生长习性（20-30字）	喜温暖湿润，怕寒冷
+五、浇水管理
+字段	类型	说明	示例
+water_frequency	枚举	浇水频率	rarely / biweekly / weekly / frequent
+water_interval_days_min	数字	间隔最少天数	7
+water_interval_days_max	数字	间隔最多天数	10
+water_description	短文本	浇水描述	
+water_principle	字符串	核心浇水原则	见干见湿 / 干透浇透 / 喜湿忌干
+water_spring	字符串	春季浇水频率	每周1次
+water_summer	字符串	夏季浇水频率	每周2次
+water_fall	字符串	秋季浇水频率	每10天1次
+water_winter	字符串	冬季浇水频率	每2周1次
+water_taboo	字符串	浇水禁忌	忌积水、忌浇叶心
+water_quality	字符串	水质要求	室温自来水即可
+六、施肥管理
+字段	类型	说明	示例
+fertilizer_type	字符串	肥料类型	平衡20-20-20
+fertilizer_frequency	枚举	施肥频率	none / monthly / biweekly / weekly
+fertilizer_description	短文本	施肥描述	
+fertilizer_best_season	字符串	施肥最佳季节	春季和夏季
+fertilizer_grow	字符串	生长期肥料	平衡氮磷钾液肥
+fertilizer_bloom	字符串	促花肥料	高磷肥促进开花
+fertilizer_stop_dormancy	布尔	休眠期是否停肥	TRUE / FALSE
+fertilizer_taboo	字符串	施肥禁忌	忌浓肥、生肥
+deficiency_symptom	短文本	缺肥表现	叶片发黄、生长缓慢
+七、土壤花盆
+字段	类型	说明	示例
+soil_type	字符串	土壤类型	排水良好的盆栽土
+soil_recipe	字符串	配土配方比例	泥炭土:珍珠岩:树皮 = 2:1:1
+soil_ph_min	小数	适宜pH最小值	5.5
+soil_ph_max	小数	适宜pH最大值	7.0
+pot_type	字符串	花盆类型	陶盆或塑料盆均可
+pot_size_suggestion	字符串	建议花盆尺寸	口径15-25cm
+repot_cycle	字符串	换盆周期	每1-2年换盆一次
+八、修剪整形
+字段	类型	说明	示例
+prune_best_time	字符串	最佳修剪时间	春季
+prune_parts	字符串	必剪部位	黄叶、过长枝条
+prune_method	字符串	打顶摘心方法	在节点上方修剪
+prune_taboo	字符串	修剪禁忌	避免在冬季重剪
+九、四季养护（JSON格式）
+seasonal_care 字段，一个JSON对象，包含四季：
+
+
+{
+  "spring": "春季养护要点文字",
+  "summer": "夏季避暑和休眠管理文字",
+  "fall": "秋季养护要点文字",
+  "winter": "冬季防冻防寒措施文字"
+}
+十、病虫害防治（JSON格式）
+pest_disease 字段，一个JSON对象：
+
+
+{
+  "diseases": [
+    { "name": "病害名称", "symptom": "症状", "cause": "发病诱因", "treatment": "治疗方案" }
+  ],
+  "pests": [
+    { "name": "虫害名称", "symptom": "表现特征", "treatment": "驱杀方法" }
+  ],
+  "prevention": "日常预防措施"
+}
+十一、毒性安全
+字段	类型	说明	可选值/示例
+toxicity_level	字符串	毒性等级	无毒 / 微毒 / 有毒 / 剧毒
+toxic_parts	字符串	有毒部位	汁液、叶片
+toxicity_symptom	长文本	误食危害	含草酸钙针晶，导致口腔肿胀
+pet_kid_warning	长文本	家庭摆放禁忌	对猫狗有毒，应放在高处
+十二、常见问题（JSON格式）
+common_problems 字段，一个JSON对象：
+
+
+{
+  "yellowLeaves": "叶片发黄原因",
+  "noBloom": "长期不开花原因",
+  "leggy": "植株徒长原因",
+  "drooping": "掉叶枯萎原因",
+  "mainTaboo": "养殖最大禁忌",
+  "beginnerTip": "新手养殖误区"
+}
+十三、价值用途
+字段	类型	说明	示例
+ornamental_value	长文本	观赏价值	大型热带观叶植物，叶片独特
+air_purify_detail	短文本	空气净化能力	能去除甲醛、苯
+edible_value	短文本	食用价值	果实成熟后可食用
+medicinal_value	短文本	药用价值	传统医学中用于消炎
+feng_shui	字符串	风水寓意	象征健康、好运
+suitable_scene	字符串	适用种植场景	客厅、办公室、酒店大堂
+十四、布尔标记（保留原有）
+字段	说明
+is_indoor	是否室内植物
+is_outdoor	是否可室外种植
+is_pet_safe	是否对宠物安全
+is_air_purifying	是否净化空气
+difficulty	养护难度：easy / medium / hard
+growth_rate	生长速度：slow / moderate / fast
+max_height_cm	最大株高（厘米）
+is_featured	是否首页推荐
+slug 命名规则：小写英文，单词用 - 连接，如 monstera-deliciosa。已占用的 slug 不能重复

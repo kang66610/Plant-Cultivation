@@ -1,0 +1,103 @@
+// ─── Green palette (leaf / plant tones) ───────────────────────
+$color-leaf-50:  #f0fdf4;
+$color-leaf-100: #dcfce7;
+$color-leaf-200: #bbf7d0;
+$color-leaf-300: #86efac;
+$color-leaf-400: #4ade80;
+$color-leaf-500: #22c55e;
+$color-leaf-600: #16a34a;
+$color-leaf-700: #15803d;
+$color-leaf-800: #166534;
+$color-leaf-900: #14532d;
+
+// ─── Earth tones (soil / terracotta) ──────────────────────────
+$color-earth-50:  #fdf8f0;
+$color-earth-100: #f5e6d0;
+$color-earth-200: #e8cba0;
+$color-earth-300: #d4a574;
+$color-earth-400: #c08a50;
+$color-earth-500: #a0703c;
+$color-earth-600: #845a30;
+$color-earth-700: #6b4828;
+$color-earth-800: #553a20;
+$color-earth-900: #3d2a18;
+
+// ─── Water blues ──────────────────────────────────────────────
+$color-water-50:  #eff8ff;
+$color-water-100: #dbeefe;
+$color-water-200: #bfdbfe;
+$color-water-300: #93c5fd;
+$color-water-400: #60a5fa;
+$color-water-500: #3b82f6;
+$color-water-600: #2563eb;
+$color-water-700: #1d4ed8;
+$color-water-800: #1e40af;
+$color-water-900: #1e3a8a;
+
+// ─── Sun yellows ──────────────────────────────────────────────
+$color-sun-50:  #fefce8;
+$color-sun-100: #fef9c3;
+$color-sun-200: #fef08a;
+$color-sun-300: #fde047;
+$color-sun-400: #facc15;
+$color-sun-500: #eab308;
+$color-sun-600: #ca8a04;
+$color-sun-700: #a16207;
+$color-sun-800: #854d0e;
+$color-sun-900: #713f12;
+
+// ─── Neutrals / light theme ───────────────────────────────────
+$color-bg:          #fafaf8;
+$color-surface:     #ffffff;
+$color-text:        #1a1a1a;
+$color-text-muted:  #6b7280;
+$color-border:      #e5e7eb;
+
+// ─── Dark theme overrides (apply via [data-theme="dark"]) ─────
+$color-bg-dark:          #111111;
+$color-surface-dark:     #1a1a1a;
+$color-text-dark:        #f5f5f5;
+$color-text-muted-dark:  #9ca3af;
+$color-border-dark:      #2d2d2d;
+
+// ─── Typography ───────────────────────────────────────────────
+$font-sans:    'Inter', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+$font-display: 'Playfair Display', 'Noto Serif SC', Georgia, serif;
+$font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+$font-size-xs:   0.75rem;   // 12px
+$font-size-sm:   0.875rem;  // 14px
+$font-size-base: 1rem;      // 16px
+$font-size-lg:   1.125rem;  // 18px
+$font-size-xl:   1.25rem;   // 20px
+$font-size-2xl:  1.5rem;    // 24px
+$font-size-3xl:  1.875rem;  // 30px
+$font-size-4xl:  2.25rem;   // 36px
+$font-size-5xl:  3rem;      // 48px
+
+// ─── Spacing scale (4px base) ─────────────────────────────────
+$space-1:  0.25rem;   // 4px
+$space-2:  0.5rem;    // 8px
+$space-3:  0.75rem;   // 12px
+$space-4:  1rem;      // 16px
+$space-5:  1.25rem;   // 20px
+$space-6:  1.5rem;    // 24px
+$space-8:  2rem;      // 32px
+$space-10: 2.5rem;    // 40px
+$space-12: 3rem;      // 48px
+$space-16: 4rem;      // 64px
+$space-20: 5rem;      // 80px
+$space-24: 6rem;      // 96px
+
+// ─── Easing curves ────────────────────────────────────────────
+$ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+$ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+$ease-bounce: cubic-bezier(0.68, -0.55, 0.27, 1.55);
+$ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+// ─── Breakpoints ──────────────────────────────────────────────
+$bp-sm:  640px;
+$bp-md:  768px;
+$bp-lg:  1024px;
+$bp-xl:  1280px;
+$bp-2xl: 1536px;

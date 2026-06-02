@@ -1,0 +1,62 @@
+# === Java / Spring Boot ===
+backend/build/
+backend/.gradle/
+backend/out/
+backend/bin/
+backend/.bloop/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+
+# === Node / Vue ===
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# === IDE ===
+.idea/
+*.iml
+.vscode/
+.claude/
+.metals/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Environment ===
+.env
+.env.local
+.env.*.local
+*.env
+
+# === MySQL data (Docker) ===
+mysql-data/
+
+# === Misc ===
+*.bak
+*.tmp
+
+# === WorkBuddy local memory ===
+.workbuddy/
+
+# === Executable ===
+ngrok.exe
+
+# === User uploads (large media files, not suitable for git) ===
+frontend/public/uploads/
+
+# === Database scripts (keep schema SQL, ignore data dumps) ===
+*.sql.bak
+*.dump
+
+# === Backend sensitive ===
+backend/.bloop/

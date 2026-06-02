@@ -1,0 +1,70 @@
+@use 'variables' as *;
+@import "tailwindcss";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-primary: #{$color-leaf-500};
+  --color-primary-light: #{$color-leaf-300};
+  --color-primary-dark: #{$color-leaf-700};
+  --color-secondary: #{$color-earth-500};
+  --color-accent: #{$color-water-500};
+  --color-sun: #{$color-sun-500};
+  --color-bg: #{$color-bg};
+  --color-surface: #{$color-surface};
+  --color-text: #{$color-text};
+  --color-text-muted: #{$color-text-muted};
+  --color-border: #{$color-border};
+  --font-sans: #{$font-sans};
+  --font-display: #{$font-display};
+  --font-mono: #{$font-mono};
+  --ease-spring: #{$ease-spring};
+  --ease-smooth: #{$ease-smooth};
+  --ease-bounce: #{$ease-bounce};
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color 0.2s var(--ease-smooth);
+
+  &:hover {
+    color: var(--color-primary-dark);
+  }
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
