@@ -1,12 +1,25 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { RouterView } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
-onMounted(() => { auth.init() })
+
+function handleAuthExpired() {
+  auth.logout()
+}
+
+onMounted(() => {
+  auth.init()
+  // request.ts 在 401 时派发的事件：同步登出（提示已在拦截器里展示）
+  window.addEventListener('auth:expired', handleAuthExpired)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('auth:expired', handleAuthExpired)
+})
 </script>
 
 <template>

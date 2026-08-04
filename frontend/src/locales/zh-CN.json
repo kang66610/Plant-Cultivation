@@ -88,7 +88,11 @@
     "rarely": "很少",
     "weekly": "每周",
     "biweekly": "每两周",
-    "frequent": "经常"
+    "frequent": "经常",
+    "humidityLow": "低湿度",
+    "humidityMedium": "中等湿度",
+    "humidityHigh": "高湿度",
+    "categoryFilter": "分类"
   },
   "detail": {
     "overview": "概述",
@@ -113,6 +117,7 @@
     "temperature": "温度",
     "humidity": "湿度",
     "loading": "加载植物详情...",
+    "loadError": "加载失败，请稍后重试",
     "tips": "养护贴士",
     "commonMistakes": "常见错误",
     "cm": "厘米",
@@ -178,7 +183,15 @@
     "fengShui": "风水寓意",
     "suitableScene": "适用场景",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "commonDiseases": "常见病害",
+    "commonPests": "常见虫害",
+    "symptom": "症状",
+    "cause": "诱因",
+    "treatment": "治疗",
+    "control": "防治",
+    "dailyPrevention": "日常预防",
+    "noPestData": "暂无病虫害数据"
   },
   "quiz": {
     "title": "光照问答",
@@ -216,7 +229,12 @@
     "step3": "环境条件",
     "step4": "查看结果",
     "searchPlant": "搜索您的植物...",
-    "potSizes": ["小型花盆 (10-15cm)", "中型花盆 (15-25cm)", "大型花盆 (25-40cm)", "特大花盆 (40cm+)"],
+    "potSizes": [
+      "小型花盆 (10-15cm)",
+      "中型花盆 (15-25cm)",
+      "大型花盆 (25-40cm)",
+      "特大花盆 (40cm+)"
+    ],
     "potSize": "花盆大小",
     "indoor": "室内",
     "outdoor": "室外",
@@ -238,7 +256,8 @@
     "conditions": "条件摘要",
     "plant": "植物",
     "next": "下一步 →",
-    "back": "← 上一步"
+    "back": "← 上一步",
+    "approxEvery": "大约每 {n} 天一次"
   },
   "about": {
     "title": "关于我们",
@@ -306,7 +325,20 @@
     "passwordMismatch": "两次密码不一致",
     "passwordTooShort": "密码长度不能少于6位",
     "passwordChanged": "密码已修改",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "collections": "我的收藏",
+    "collectionsLoading": "加载中...",
+    "emptyCollections": "还没有收藏植物，去植物百科逛逛吧",
+    "waterInterval": "浇水间隔",
+    "days": "天",
+    "nextWater": "下次浇水",
+    "notWateredYet": "尚未标记浇水",
+    "markWatered": "标记浇水",
+    "uncollect": "取消收藏",
+    "justNow": "刚刚",
+    "minutesAgo": "{n}分钟前",
+    "hoursAgo": "{n}小时前",
+    "daysAgo": "{n}天前"
   },
   "diary": {
     "title": "种植日记",
@@ -330,7 +362,16 @@
     "leafCount": "叶片数",
     "leaves": "片",
     "growthStage": "生长阶段",
-    "delete": "删除"
+    "delete": "删除",
+    "confirmDelete": "确定删除这篇日记吗？"
   },
-  "langSwitch": "English"
+  "langSwitch": "English",
+  "home": {
+    "testimonialsTitle": "他们都在用",
+    "testimonialsSubtitle": "来自真实用户的反馈",
+    "ctaTitle": "开始你的绿色之旅",
+    "ctaText": "探索 50+ 种植物的详细养护指南，找到最适合你的绿色伙伴",
+    "ctaBrowse": "浏览植物百科",
+    "ctaQuiz": "光照问答"
+  }
 }

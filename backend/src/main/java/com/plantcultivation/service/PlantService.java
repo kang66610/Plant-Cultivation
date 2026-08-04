@@ -51,10 +51,12 @@ public class PlantService extends ServiceImpl<PlantMapper, Plant> {
             QueryWrapper<Category> catWrapper = new QueryWrapper<>();
             catWrapper.eq("slug", category);
             Category cat = categoryMapper.selectOne(catWrapper);
-            if (cat != null) {
-                wrapper.inSql("id",
-                    "SELECT plant_id FROM plant_category WHERE category_id = " + cat.getId());
+            if (cat == null) {
+                // 分类不存在时返回空结果，避免"过滤条件被静默丢弃返回全量"的误导
+                return new Page<>(page, size);
             }
+            wrapper.inSql("id",
+                "SELECT plant_id FROM plant_category WHERE category_id = " + cat.getId());
         }
 
         wrapper.orderByAsc("common_name");
@@ -86,7 +88,11 @@ public class PlantService extends ServiceImpl<PlantMapper, Plant> {
     }
 
     public List<Plant> searchPlants(String keyword, int limit) {
-        return plantMapper.fullTextSearch(keyword, limit);
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
+        }
+        // 自然语言模式：用户输入含 BOOLEAN MODE 运算符（" + - * @ 等）时不会抛 SQL 语法错误
+        return plantMapper.naturalSearch(keyword, limit);
     }
 
     public List<Plant> getPlantsByCategory(String categorySlug) {

@@ -38,8 +38,9 @@ const newDiary = ref({
   plantName: '',
   weather: '',
   mood: '',
-  heightCm: null as number | null,
-  leafCount: null as number | null,
+  // v-model.number 在输入清空时实际值为 ''（空字符串），类型需包含它
+  heightCm: null as number | '' | null,
+  leafCount: null as number | '' | null,
   growthStage: '',
   images: [] as string[],
 })
@@ -137,8 +138,9 @@ async function submitDiary() {
       plantName: newDiary.value.plantName,
       weather: newDiary.value.weather,
       mood: newDiary.value.mood,
-      heightCm: newDiary.value.heightCm,
-      leafCount: newDiary.value.leafCount,
+      // v-model.number 清空后为 ''（空字符串），后端 Integer 无法解析，转 null
+      heightCm: newDiary.value.heightCm === '' ? null : newDiary.value.heightCm,
+      leafCount: newDiary.value.leafCount === '' ? null : newDiary.value.leafCount,
       growthStage: newDiary.value.growthStage,
       images: JSON.stringify(newDiary.value.images),
     }
@@ -154,10 +156,13 @@ async function submitDiary() {
 }
 
 async function deleteDiary(id: number) {
-  if (!confirm('确定删除这篇日记吗？')) return
+  if (!confirm(t('diary.confirmDelete'))) return
   try {
-    await request.delete(`/diaries/${id}`)
-    diaries.value = diaries.value.filter(d => d.id !== id)
+    const res: any = await request.delete(`/diaries/${id}`)
+    // 仅在后端确认成功后移除本地条目
+    if (res.code === 200) {
+      diaries.value = diaries.value.filter(d => d.id !== id)
+    }
   } catch {}
 }
 
@@ -168,9 +173,8 @@ async function uploadImage(event: Event) {
   const formData = new FormData()
   formData.append('file', file)
   try {
-    const res: any = await request.post('/upload/image', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    // 不手动设置 Content-Type：让浏览器自动生成带 boundary 的 multipart 头
+    const res: any = await request.post('/upload/image', formData)
     if (res.code === 200) {
       newDiary.value.images.push(res.data)
     }

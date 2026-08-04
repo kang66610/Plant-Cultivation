@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -13,15 +13,20 @@ const tips = computed(() => [
 
 const currentTip = ref(0)
 const visible = ref(true)
+let timer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
-  setInterval(() => {
+  timer = setInterval(() => {
     visible.value = false
     setTimeout(() => {
       currentTip.value = (currentTip.value + 1) % tips.value.length
       visible.value = true
     }, 400)
   }, 5000)
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
 })
 </script>
 

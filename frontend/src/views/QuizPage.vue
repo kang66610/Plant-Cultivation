@@ -8,6 +8,8 @@ const { t } = useI18n()
 const router = useRouter()
 
 const currentStep = ref(0)
+// 过渡方向：前进 slide-left、后退 slide-right（否则后退也向左滑）
+const transitionName = ref<'slide-left' | 'slide-right'>('slide-right')
 const answers = ref({
   window: '',
   hours: 3,
@@ -40,11 +42,17 @@ const recommendations = computed(() => {
 const progress = computed(() => ((currentStep.value + 1) / 3) * 100)
 
 function nextStep() {
-  if (currentStep.value < 2) currentStep.value++
+  if (currentStep.value < 2) {
+    transitionName.value = 'slide-left'
+    currentStep.value++
+  }
 }
 
 function prevStep() {
-  if (currentStep.value > 0) currentStep.value--
+  if (currentStep.value > 0) {
+    transitionName.value = 'slide-right'
+    currentStep.value--
+  }
 }
 
 function goToEncyclopedia() {
@@ -68,7 +76,7 @@ function goToEncyclopedia() {
         <span v-for="i in 3" :key="i" class="quiz__step-dot" :class="{ 'quiz__step-dot--active': i - 1 <= currentStep }" />
       </div>
 
-      <Transition :name="currentStep > 0 ? 'slide-left' : 'slide-right'" mode="out-in">
+      <Transition :name="transitionName" mode="out-in">
         <div v-if="currentStep === 0" key="step1" class="quiz__step">
           <h2 class="quiz__question">{{ $t('quiz.step1Q') }}</h2>
           <p class="quiz__hint">{{ $t('quiz.step1Hint') }}</p>

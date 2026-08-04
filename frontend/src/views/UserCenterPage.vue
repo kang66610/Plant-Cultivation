@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import request from '@/api/request'
+import type { PlantCollection } from '@/types'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -20,6 +21,54 @@ const passwordError = ref('')
 const passwordSuccess = ref('')
 
 const avatarUploading = ref(false)
+
+// ---- 我的收藏（浇水提醒） ----
+const showCollections = ref(false)
+const collectionsLoading = ref(false)
+const collections = ref<PlantCollection[]>([])
+
+async function loadCollections() {
+  collectionsLoading.value = true
+  try {
+    const res: any = await request.get('/collections')
+    collections.value = res.data?.records || []
+  } catch {
+    // 请求失败保持空列表，不中断页面
+  } finally {
+    collectionsLoading.value = false
+  }
+}
+
+function toggleCollections() {
+  showCollections.value = !showCollections.value
+  if (showCollections.value && collections.value.length === 0 && !collectionsLoading.value) {
+    loadCollections()
+  }
+}
+
+async function waterPlant(c: PlantCollection) {
+  try {
+    await request.post(`/collections/${c.plantId}/water`)
+    await loadCollections()
+  } catch {
+    // 静默失败，避免打断用户
+  }
+}
+
+async function uncollect(c: PlantCollection) {
+  try {
+    await request.delete(`/collections/${c.plantId}`)
+    collections.value = collections.value.filter((x) => x.id !== c.id)
+  } catch {
+    // 静默失败，避免打断用户
+  }
+}
+
+function formatDate(iso: string) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 onMounted(() => {
   if (!auth.isLoggedIn) {
@@ -57,9 +106,8 @@ async function handleAvatarUpload(e: Event) {
   const formData = new FormData()
   formData.append('file', file)
   try {
-    const res: any = await request.post('/upload/image', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    // 不手动设置 Content-Type：让浏览器自动生成带 boundary 的 multipart 头
+    const res: any = await request.post('/upload/image', formData)
     if (res.code === 200) {
       const avatarUrl = res.data
       const err = await auth.updateProfile(auth.user!.username, auth.user!.bio || '', avatarUrl)
@@ -173,6 +221,37 @@ function handleLogout() {
             <p v-if="passwordError" class="user-center__error">{{ passwordError }}</p>
             <p v-if="passwordSuccess" class="user-center__success">{{ passwordSuccess }}</p>
             <button class="user-center__save-btn" @click="handleChangePassword">{{ t('community.save') }}</button>
+          </div>
+        </Transition>
+      </div>
+
+      <div class="user-center__section">
+        <button class="user-center__section-toggle" @click="toggleCollections">
+          <span>{{ t('community.collections') }}</span>
+          <svg :class="{ 'user-center__arrow--open': showCollections }" viewBox="0 0 12 12" fill="none">
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <Transition name="expand">
+          <div v-if="showCollections" class="user-center__collections">
+            <p v-if="collectionsLoading" class="user-center__empty">{{ t('community.collectionsLoading') }}</p>
+            <p v-else-if="collections.length === 0" class="user-center__empty">{{ t('community.emptyCollections') }}</p>
+            <div v-else class="user-center__collection-item" v-for="c in collections" :key="c.id">
+              <img v-if="c.plantImage" :src="c.plantImage" class="user-center__collection-img" alt="" />
+              <div v-else class="user-center__collection-img user-center__collection-img--placeholder">🌿</div>
+              <div class="user-center__collection-info">
+                <p class="user-center__collection-name">{{ c.plantName || c.plantSlug }}</p>
+                <p class="user-center__collection-meta">{{ t('community.waterInterval') }}：{{ c.waterIntervalDays }} {{ t('community.days') }}</p>
+                <p v-if="c.nextWaterAt" class="user-center__collection-meta">
+                  {{ t('community.nextWater') }}：{{ formatDate(c.nextWaterAt) }}
+                </p>
+                <p v-else class="user-center__collection-meta">{{ t('community.notWateredYet') }}</p>
+              </div>
+              <div class="user-center__collection-actions">
+                <button class="user-center__collection-btn" @click="waterPlant(c)">{{ t('community.markWatered') }}</button>
+                <button class="user-center__collection-btn user-center__collection-btn--danger" @click="uncollect(c)">{{ t('community.uncollect') }}</button>
+              </div>
+            </div>
           </div>
         </Transition>
       </div>
@@ -390,6 +469,92 @@ function handleLogout() {
 
   &__password-form {
     padding-top: 0.5rem;
+  }
+
+  &__collections {
+    padding-top: 0.5rem;
+  }
+
+  &__empty {
+    text-align: center;
+    color: $color-text-muted;
+    font-size: 0.85rem;
+    padding: 1rem 0;
+  }
+
+  &__collection-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+
+    &:last-child { border-bottom: none; }
+  }
+
+  &__collection-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 0.5rem;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: $color-leaf-50;
+
+    &--placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+  }
+
+  &__collection-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__collection-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: $color-leaf-900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__collection-meta {
+    font-size: 0.75rem;
+    color: $color-text-muted;
+    margin-top: 0.15rem;
+  }
+
+  &__collection-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+
+  &__collection-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+    border-radius: 0.4rem;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    background: $color-leaf-50;
+    color: $color-leaf-700;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover { background: $color-leaf-100; }
+
+    &--danger {
+      border-color: rgba(239, 68, 68, 0.3);
+      background: white;
+      color: #ef4444;
+
+      &:hover { background: #fef2f2; }
+    }
   }
 
   &__error {

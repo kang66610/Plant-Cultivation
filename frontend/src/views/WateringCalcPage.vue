@@ -433,14 +433,19 @@ function startOver() {
 }
 
 // ─── Calendar helpers ───────────────────────────────────────
-function getMonthName(): string {
+function getSeasonMonth(): number {
   const seasonMonthMap: Record<Season, number> = { spring: 3, summer: 6, fall: 9, winter: 0 }
-  const d = new Date(2026, seasonMonthMap[season.value], 1)
+  return seasonMonthMap[season.value]
+}
+
+function getMonthName(): string {
+  const d = new Date(new Date().getFullYear(), getSeasonMonth(), 1)
   return d.toLocaleString('default', { month: 'long' })
 }
 
 function getDaysInMonth(): number {
-  return 30
+  // 按真实月份返回天数（3月31天、6月30天、9月30天、12月31天），不再恒为 30
+  return new Date(new Date().getFullYear(), getSeasonMonth() + 1, 0).getDate()
 }
 </script>
 
@@ -692,7 +697,7 @@ function getDaysInMonth(): number {
                   {{ $t('watering.everyDays', { min: wateringResult?.minDays, max: wateringResult?.maxDays }) }}
                 </p>
                 <p class="watering-calc__result-card-detail">
-                  Approximately once every {{ wateringResult?.avgInterval }} days
+                  {{ $t('watering.approxEvery', { n: wateringResult?.avgInterval }) }}
                 </p>
               </div>
             </div>

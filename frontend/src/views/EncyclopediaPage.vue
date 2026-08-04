@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import request from '@/api/request'
@@ -102,7 +102,10 @@ const allMockPlants: Plant[] = [
   { id: 51, commonName: '文心兰', scientificName: 'Oncidium flexuosum', slug: 'oncidium-flexuosum', shortDescription: '花形似翩翩起舞的黄裙女郎，散发甜蜜巧克力奇香的高档附生兰花', imageUrl: '/images/plants/oncidium.jpg', difficulty: 'hard', lightLevel: 'medium', waterFrequency: 'weekly' },
 ]
 
+let fetchSeq = 0
+
 async function fetchPlants() {
+  const seq = ++fetchSeq
   loading.value = true
   try {
     const params: Record<string, string> = { page: '1', size: '50' }
@@ -112,8 +115,10 @@ async function fetchPlants() {
     if (activeCategory.value) params.category = activeCategory.value
 
     const res: any = await request.get('/plants', { params })
+    if (seq !== fetchSeq) return // 已有更新的请求，丢弃本次慢响应
     plants.value = res.data?.records || []
   } catch {
+    if (seq !== fetchSeq) return
     let filtered = [...allMockPlants]
     if (activeDifficulty.value) {
       filtered = filtered.filter(p => p.difficulty === activeDifficulty.value)
@@ -130,7 +135,7 @@ async function fetchPlants() {
     }
     plants.value = filtered
   } finally {
-    loading.value = false
+    if (seq === fetchSeq) loading.value = false
   }
 }
 
@@ -171,8 +176,16 @@ onMounted(() => {
   fetchCategories()
 })
 
+// 搜索防抖 300ms：避免每次按键立即请求（竞态保护在 fetchPlants 内部按 fetchSeq 丢弃慢响应）
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
 watch([searchQuery, activeDifficulty, activeLight, activeCategory], () => {
-  fetchPlants()
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(fetchPlants, 300)
+})
+
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
 })
 </script>
 
@@ -199,7 +212,7 @@ watch([searchQuery, activeDifficulty, activeLight, activeCategory], () => {
     <div class="encyclopedia__content">
       <aside class="encyclopedia__filters">
         <div class="encyclopedia__filter-group" v-if="categories.length">
-          <h3 class="encyclopedia__filter-title">{{ $t('nav.encyclopedia') }}</h3>
+          <h3 class="encyclopedia__filter-title">{{ $t('encyclopedia.categoryFilter') }}</h3>
           <div class="encyclopedia__filter-options">
             <button
               class="encyclopedia__filter-btn"

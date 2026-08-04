@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.plantcultivation.entity.PlantDiary;
 import com.plantcultivation.entity.User;
+import com.plantcultivation.exception.BusinessException;
 import com.plantcultivation.mapper.PlantDiaryMapper;
 import com.plantcultivation.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -49,7 +50,7 @@ public class PlantDiaryService {
     public void deleteDiary(Long id, String account) {
         PlantDiary diary = diaryMapper.selectById(id);
         if (diary == null || !diary.getUserAccount().equals(account)) {
-            throw new RuntimeException("UNAUTHORIZED");
+            throw new BusinessException("无权删除", 403);
         }
         diaryMapper.deleteById(id);
     }

@@ -75,9 +75,9 @@ jobs:
         with:
           path: artifacts
 
-      # 服务器路径：
-      #   /www/wwwroot/plant-cultivation/backend/app.jar.new   (后端新 jar)
-      #   /www/wwwroot/plant-cultivation/frontend-new/         (前端新 dist)
+      # 服务器路径（必须与 scripts/deploy.sh 中检查的路径一致！）：
+      #   /www/wwwroot/plant-cultivation/backend/app.jar.new        (后端新 jar)
+      #   /www/wwwroot/plant-cultivation/frontend/frontend-new/    (前端新 dist)
       # 上传完成后由服务器上的 deploy.sh 完成原子切换 + 重启
       - name: Upload artifacts to server
         env:
@@ -89,8 +89,11 @@ jobs:
         run: |
           echo "$SSH_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
+          # 先清理残留目录：scp -r 到已存在目录会嵌套一层（frontend-new/frontend-dist），导致切换后 404
+          ssh -i /tmp/deploy_key -p "$PORT" -o StrictHostKeyChecking=no \
+            "$USER@$HOST" 'rm -rf /www/wwwroot/plant-cultivation/frontend/frontend-new'
           scp -i /tmp/deploy_key -P "$PORT" -o StrictHostKeyChecking=no -r \
-            artifacts/frontend-dist "$USER@$HOST:/www/wwwroot/plant-cultivation/frontend-new"
+            artifacts/frontend-dist "$USER@$HOST:/www/wwwroot/plant-cultivation/frontend/frontend-new"
           scp -i /tmp/deploy_key -P "$PORT" -o StrictHostKeyChecking=no \
             artifacts/backend-jar/plant-cultivation-0.0.1-SNAPSHOT.jar \
             "$USER@$HOST:/www/wwwroot/plant-cultivation/backend/app.jar.new"

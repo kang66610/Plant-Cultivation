@@ -2,15 +2,19 @@ server:
   port: 8080
 
 spring:
+  # 本地开发：从 backend/.env 读取环境变量（optional 前缀：文件缺失时静默跳过，不影响生产）
+  config:
+    import: optional:file:.env[.properties]
   datasource:
     url: jdbc:mysql://localhost:3306/plant_cultivation?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
     username: plant_cultivation
-    password: ${DB_PASSWORD:123456}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   servlet:
     multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
+      # 与 UploadController 的 10MB 业务校验保持一致（避免大文件先占内存）
+      max-file-size: 10MB
+      max-request-size: 10MB
 
 mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
@@ -21,7 +25,8 @@ mybatis-plus:
       id-type: auto
 
 jwt:
-  secret: ${JWT_SECRET:YXB0LXBsYW50LWN1bHRpdmF0aW9uLXNlY3JldC1rZXktMjAyNg==}
+  # 必需：由环境变量 JWT_SECRET 提供，缺失将导致服务无法启动（防止默认密钥被伪造 token）
+  secret: ${JWT_SECRET}
   expiration: 86400000  # 24 hours
 
 app:
@@ -29,6 +34,4 @@ app:
 
 logging:
   level:
-    com.plantcultivation: debug
-    com.zaxxer.hikari: DEBUG
-    org.springframework.jdbc: DEBUG
+    com.plantcultivation: info

@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const sectionVisible = ref(false)
 const sectionRef = ref<HTMLElement>()
 const activeIndex = ref(0)
+let timer: ReturnType<typeof setInterval> | null = null
 
 const testimonials = [
   {
@@ -38,9 +42,13 @@ onMounted(() => {
   )
   if (sectionRef.value) observer.observe(sectionRef.value)
 
-  setInterval(() => {
+  timer = setInterval(() => {
     activeIndex.value = (activeIndex.value + 1) % testimonials.length
   }, 6000)
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
 })
 </script>
 
@@ -52,8 +60,8 @@ onMounted(() => {
     </div>
 
     <div class="testimonials__inner">
-      <h2 class="testimonials__title">他们都在用</h2>
-      <p class="testimonials__subtitle">来自真实用户的反馈</p>
+      <h2 class="testimonials__title">{{ t('home.testimonialsTitle') }}</h2>
+      <p class="testimonials__subtitle">{{ t('home.testimonialsSubtitle') }}</p>
 
       <div class="testimonials__carousel">
         <div

@@ -89,7 +89,11 @@
     "rarely": "Rarely",
     "weekly": "Weekly",
     "biweekly": "Biweekly",
-    "frequent": "Frequent"
+    "frequent": "Frequent",
+    "humidityLow": "Low Humidity",
+    "humidityMedium": "Medium Humidity",
+    "humidityHigh": "High Humidity",
+    "categoryFilter": "Category"
   },
   "detail": {
     "overview": "Overview",
@@ -114,6 +118,7 @@
     "temperature": "Temperature",
     "humidity": "Humidity",
     "loading": "Loading plant details...",
+    "loadError": "Failed to load, please try again later",
     "tips": "Tips",
     "commonMistakes": "Common Mistakes",
     "cm": "cm",
@@ -179,7 +184,15 @@
     "fengShui": "Feng Shui",
     "suitableScene": "Suitable Scene",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "commonDiseases": "Common Diseases",
+    "commonPests": "Common Pests",
+    "symptom": "Symptom",
+    "cause": "Cause",
+    "treatment": "Treatment",
+    "control": "Control",
+    "dailyPrevention": "Daily Prevention",
+    "noPestData": "No pest data available"
   },
   "quiz": {
     "title": "Light Quiz",
@@ -217,7 +230,12 @@
     "step3": "Environment",
     "step4": "Results",
     "searchPlant": "Search your plant...",
-    "potSizes": ["Small (10-15cm)", "Medium (15-25cm)", "Large (25-40cm)", "Extra Large (40cm+)"],
+    "potSizes": [
+      "Small (10-15cm)",
+      "Medium (15-25cm)",
+      "Large (25-40cm)",
+      "Extra Large (40cm+)"
+    ],
     "potSize": "Pot Size",
     "indoor": "Indoor",
     "outdoor": "Outdoor",
@@ -239,7 +257,8 @@
     "conditions": "Conditions",
     "plant": "Plant",
     "next": "Next →",
-    "back": "← Back"
+    "back": "← Back",
+    "approxEvery": "Approximately once every {n} days"
   },
   "about": {
     "title": "About Us",
@@ -307,7 +326,20 @@
     "passwordMismatch": "Passwords do not match",
     "passwordTooShort": "Password must be at least 6 characters",
     "passwordChanged": "Password changed",
-    "logout": "Logout"
+    "logout": "Logout",
+    "collections": "My Collections",
+    "collectionsLoading": "Loading...",
+    "emptyCollections": "No collections yet. Explore the plant encyclopedia!",
+    "waterInterval": "Water interval",
+    "days": "days",
+    "nextWater": "Next watering",
+    "notWateredYet": "Not watered yet",
+    "markWatered": "Mark Watered",
+    "uncollect": "Remove",
+    "justNow": "Just now",
+    "minutesAgo": "{n} minutes ago",
+    "hoursAgo": "{n} hours ago",
+    "daysAgo": "{n} days ago"
   },
   "diary": {
     "title": "Plant Diary",
@@ -331,7 +363,16 @@
     "leafCount": "Leaf Count",
     "leaves": "leaves",
     "growthStage": "Growth Stage",
-    "delete": "Delete"
+    "delete": "Delete",
+    "confirmDelete": "Delete this diary entry?"
   },
-  "langSwitch": "中文"
+  "langSwitch": "中文",
+  "home": {
+    "testimonialsTitle": "They are using it",
+    "testimonialsSubtitle": "Feedback from real users",
+    "ctaTitle": "Start Your Green Journey",
+    "ctaText": "Explore care guides for 50+ plants and find your perfect green companion",
+    "ctaBrowse": "Browse Encyclopedia",
+    "ctaQuiz": "Light Quiz"
+  }
 }

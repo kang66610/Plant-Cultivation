@@ -22,7 +22,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("com.baomidou:mybatis-plus-spring-boot3-starter:3.5.12")
-    implementation("com.github.jsqlparser:jsqlparser:5.0")
+    // 3.5.9+ 分页插件（PaginationInnerInterceptor）拆到独立模块，jsqlparser 由它传递引入
+    implementation("com.baomidou:mybatis-plus-jsqlparser:3.5.12")
     implementation("com.mysql:mysql-connector-j")
     implementation("io.jsonwebtoken:jjwt-api:0.12.6")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")

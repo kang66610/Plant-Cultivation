@@ -12,7 +12,12 @@ public class CorsConfig {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOriginPattern("*");
+        // 收紧来源：本地 Vite 开发（代理同源，此处仅兜底直连场景）+ 生产站点
+        // 生产为 Nginx 同源反代，实际不触发 CORS
+        config.addAllowedOriginPattern("http://localhost:*");
+        config.addAllowedOriginPattern("http://127.0.0.1:*");
+        config.addAllowedOriginPattern("http://175.178.200.181");
+        config.addAllowedOriginPattern("https://175.178.200.181");
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         config.setAllowCredentials(true);

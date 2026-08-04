@@ -29,7 +29,8 @@ public class PlantController {
             @RequestParam(required = false) Boolean petSafe,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "12") int size) {
-
+        page = clampPage(page);
+        size = clampSize(size);
         Page<Plant> result = plantService.listPlants(search, category, light, water, difficulty, indoor, petSafe, page, size);
         PageResultVO<Plant> pageResult = PageResultVO.of(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());
         return ResultVO.success(pageResult);
@@ -38,6 +39,8 @@ public class PlantController {
     @GetMapping("/featured")
     public ResultVO<List<Plant>> getFeaturedPlants(
             @RequestParam(defaultValue = "6") int limit) {
+        if (limit < 1) limit = 6;
+        if (limit > 100) limit = 100;
         return ResultVO.success(plantService.getFeaturedPlants(limit));
     }
 
@@ -45,7 +48,17 @@ public class PlantController {
     public ResultVO<List<Plant>> searchPlants(
             @RequestParam String q,
             @RequestParam(defaultValue = "10") int limit) {
+        if (limit < 1) limit = 10;
+        if (limit > 100) limit = 100;
         return ResultVO.success(plantService.searchPlants(q, limit));
+    }
+
+    private int clampPage(int page) {
+        return Math.max(page, 1);
+    }
+
+    private int clampSize(int size) {
+        return Math.min(Math.max(size, 1), 100);
     }
 
     @GetMapping("/{slug}")

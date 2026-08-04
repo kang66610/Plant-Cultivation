@@ -7,6 +7,7 @@ import com.plantcultivation.entity.Post;
 import com.plantcultivation.entity.PostComment;
 import com.plantcultivation.entity.PostLike;
 import com.plantcultivation.entity.User;
+import com.plantcultivation.exception.BusinessException;
 import com.plantcultivation.mapper.PlantMapper;
 import com.plantcultivation.mapper.PostCommentMapper;
 import com.plantcultivation.mapper.PostLikeMapper;
@@ -73,48 +74,48 @@ public class PostService {
     public void deletePost(Long postId, String account) {
         Post post = postMapper.selectById(postId);
         if (post == null || !post.getUserAccount().equals(account)) {
-            throw new RuntimeException("UNAUTHORIZED");
+            throw new BusinessException("无权删除", 403);
         }
         postMapper.deleteById(postId);
     }
 
     @Transactional
     public boolean toggleLike(Long postId, String account) {
+        if (postMapper.selectById(postId) == null) return false;
+
         QueryWrapper<PostLike> qw = new QueryWrapper<>();
         qw.eq("post_id", postId).eq("user_account", account);
-        PostLike existing = postLikeMapper.selectOne(qw);
-        Post post = postMapper.selectById(postId);
-        if (post == null) return false;
-
-        if (existing != null) {
-            postLikeMapper.delete(qw);
-            post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
-            postMapper.updateById(post);
+        // 先尝试删除：影响行数 > 0 说明本次确实取消了点赞（并发下 delete 是原子的，不会重复减计数）
+        int deleted = postLikeMapper.delete(qw);
+        if (deleted > 0) {
+            postMapper.incrementCount(postId, "like_count", -1);
             return false;
-        } else {
-            PostLike like = new PostLike();
-            like.setPostId(postId);
-            like.setUserAccount(account);
+        }
+        // 未找到点赞记录 → 执行点赞；并发下可能撞 uk_post_user 唯一键，捕获后按"已点赞"处理
+        PostLike like = new PostLike();
+        like.setPostId(postId);
+        like.setUserAccount(account);
+        try {
             postLikeMapper.insert(like);
-            post.setLikeCount(post.getLikeCount() + 1);
-            postMapper.updateById(post);
+            postMapper.incrementCount(postId, "like_count", 1);
             return true;
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            return true; // 并发下已存在，视为点赞成功
         }
     }
 
     @Transactional
     public PostComment addComment(Long postId, String account, String content) {
+        if (postMapper.selectById(postId) == null) {
+            throw new BusinessException("帖子不存在", 404);
+        }
         PostComment comment = new PostComment();
         comment.setPostId(postId);
         comment.setUserAccount(account);
         comment.setContent(content);
         postCommentMapper.insert(comment);
 
-        Post post = postMapper.selectById(postId);
-        if (post != null) {
-            post.setCommentCount(post.getCommentCount() + 1);
-            postMapper.updateById(post);
-        }
+        postMapper.incrementCount(postId, "comment_count", 1);
 
         // 批量查询用户信息
         List<User> users = userMapper.selectByAccounts(List.of(account));

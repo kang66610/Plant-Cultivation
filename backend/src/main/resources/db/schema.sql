@@ -1,4 +1,5 @@
 -- Plant Cultivation Database Schema
+-- 由 scripts/rebuild-sql.py 从 plant_cultivation.sql（生产 dump）重建，勿手工编辑
 
 CREATE DATABASE IF NOT EXISTS plant_cultivation
     CHARACTER SET utf8mb4
@@ -6,208 +7,245 @@ CREATE DATABASE IF NOT EXISTS plant_cultivation
 
 USE plant_cultivation;
 
--- Categories table
-CREATE TABLE IF NOT EXISTS category (
-    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name            VARCHAR(50) NOT NULL,
-    slug            VARCHAR(60) NOT NULL UNIQUE,
-    description     TEXT,
-    icon_svg        TEXT,
-    display_order   INT DEFAULT 0,
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+CREATE TABLE IF NOT EXISTS `category` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `slug` varchar(60) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `icon_svg` text COLLATE utf8mb4_unicode_ci,
+  `display_order` int DEFAULT '0',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Plants table
-CREATE TABLE IF NOT EXISTS plant (
-    id                  BIGINT PRIMARY KEY AUTO_INCREMENT,
-    common_name         VARCHAR(100) NOT NULL,
-    scientific_name     VARCHAR(150) NOT NULL,
-    slug                VARCHAR(120) NOT NULL UNIQUE,
-    family              VARCHAR(80),
-    origin              VARCHAR(200),
-    description         TEXT,
-    short_description   VARCHAR(300),
+CREATE TABLE IF NOT EXISTS `plant` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `common_name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `aliases` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '别名',
+  `scientific_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `slug` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `family` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `genus_name` varchar(80) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '属名',
+  `plant_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '植株品类：草本/木本/藤本/肉质',
+  `growth_cycle` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '生长周期：一年生/二年生/多年生',
+  `ornamental_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '观赏分类：观叶/观花/观果/多肉/水培',
+  `origin` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `short_description` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `leaf_shape` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '叶片形状',
+  `leaf_color` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '叶色特征',
+  `stem_feature` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '茎干特征',
+  `flower_shape` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '花朵形态',
+  `flower_color` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '花色',
+  `bloom_month` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '开花月份/花期',
+  `fruit_period` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '果期',
+  `overall_shape` text COLLATE utf8mb4_unicode_ci COMMENT '整体外形特征描述',
+  `light_level` enum('low','medium','high','bright_direct') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `light_hours_min` tinyint DEFAULT NULL,
+  `light_hours_max` tinyint DEFAULT NULL,
+  `light_description` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `water_frequency` enum('rarely','weekly','biweekly','frequent') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `water_interval_days_min` smallint DEFAULT NULL,
+  `water_interval_days_max` smallint DEFAULT NULL,
+  `water_description` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `water_principle` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '核心浇水原则',
+  `water_spring` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '春季浇水频率',
+  `water_summer` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '夏季浇水频率',
+  `water_fall` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '秋季浇水频率',
+  `water_winter` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '冬季浇水频率',
+  `water_taboo` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '浇水禁忌',
+  `water_quality` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '适用水质',
+  `humidity_level` enum('low','medium','high') COLLATE utf8mb4_unicode_ci DEFAULT 'medium',
+  `humidity_description` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `temp_min_celsius` tinyint DEFAULT NULL,
+  `temp_max_celsius` tinyint DEFAULT NULL,
+  `temp_cold_min` tinyint DEFAULT NULL COMMENT '最低耐寒温度',
+  `temp_heat_max` tinyint DEFAULT NULL COMMENT '最高耐热温度',
+  `summer_dormancy` tinyint(1) DEFAULT '0' COMMENT '是否高温休眠',
+  `suitable_position` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '适宜摆放位置',
+  `growth_habit` text COLLATE utf8mb4_unicode_ci COMMENT '生长习性',
+  `temp_description` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `fertilizer_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `fertilizer_frequency` enum('none','monthly','biweekly','weekly') COLLATE utf8mb4_unicode_ci DEFAULT 'monthly',
+  `fertilizer_description` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `fertilizer_best_season` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '施肥最佳季节',
+  `fertilizer_grow` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '生长期肥料',
+  `fertilizer_bloom` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '促花肥料',
+  `fertilizer_stop_dormancy` tinyint(1) DEFAULT '0' COMMENT '休眠期是否停肥',
+  `fertilizer_taboo` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '施肥禁忌',
+  `deficiency_symptom` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '缺肥表现',
+  `prune_best_time` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '最佳修剪时间',
+  `prune_parts` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '必剪部位',
+  `prune_method` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '打顶摘心方法',
+  `prune_taboo` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '修剪禁忌',
+  `seasonal_care` json DEFAULT NULL COMMENT '四季养护要点JSON',
+  `pest_disease` json DEFAULT NULL COMMENT '病虫害防治JSON',
+  `toxicity_level` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '无毒' COMMENT '毒性等级：无毒/微毒/有毒/剧毒',
+  `toxic_parts` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '有毒部位',
+  `toxicity_symptom` text COLLATE utf8mb4_unicode_ci COMMENT '触碰/误食危害',
+  `pet_kid_warning` text COLLATE utf8mb4_unicode_ci COMMENT '家庭摆放禁忌',
+  `common_problems` json DEFAULT NULL COMMENT '常见问题JSON',
+  `ornamental_value` text COLLATE utf8mb4_unicode_ci COMMENT '观赏价值',
+  `air_purify_detail` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '空气净化详情',
+  `edible_value` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '食用价值',
+  `medicinal_value` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '药用价值',
+  `feng_shui` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '风水寓意',
+  `suitable_scene` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '适用种植场景',
+  `soil_type` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `soil_recipe` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '专业配土配方',
+  `pot_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '花盆类型',
+  `pot_size_suggestion` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '建议花盆尺寸',
+  `repot_cycle` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '换盆周期',
+  `soil_ph_min` decimal(3,1) DEFAULT NULL,
+  `soil_ph_max` decimal(3,1) DEFAULT NULL,
+  `difficulty` enum('easy','medium','hard') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `growth_rate` enum('slow','moderate','fast') COLLATE utf8mb4_unicode_ci DEFAULT 'moderate',
+  `max_height_cm` smallint DEFAULT NULL,
+  `is_indoor` tinyint(1) DEFAULT '1',
+  `is_outdoor` tinyint(1) DEFAULT '0',
+  `is_pet_safe` tinyint(1) DEFAULT '0',
+  `is_air_purifying` tinyint(1) DEFAULT '0',
+  `image_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `image_alt` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `gallery_urls` json DEFAULT NULL,
+  `model_3d_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lottie_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `meta_title` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `meta_description` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_featured` tinyint(1) DEFAULT '0',
+  `view_count` int DEFAULT '0',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`),
+  KEY `idx_difficulty` (`difficulty`),
+  KEY `idx_light` (`light_level`),
+  KEY `idx_featured` (`is_featured`),
+  FULLTEXT KEY `ft_search` (`common_name`,`scientific_name`,`description`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    -- Care parameters
-    light_level         ENUM('low','medium','high','bright_direct') NOT NULL,
-    light_hours_min     TINYINT,
-    light_hours_max     TINYINT,
-    light_description   VARCHAR(300),
+CREATE TABLE IF NOT EXISTS `plant_category` (
+  `plant_id` bigint NOT NULL,
+  `category_id` bigint NOT NULL,
+  PRIMARY KEY (`plant_id`,`category_id`),
+  KEY `category_id` (`category_id`),
+  CONSTRAINT `plant_category_ibfk_1` FOREIGN KEY (`plant_id`) REFERENCES `plant` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `plant_category_ibfk_2` FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    water_frequency     ENUM('rarely','weekly','biweekly','frequent') NOT NULL,
-    water_interval_days_min SMALLINT,
-    water_interval_days_max SMALLINT,
-    water_description   VARCHAR(300),
+CREATE TABLE IF NOT EXISTS `care_guide` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `plant_id` bigint NOT NULL,
+  `season` enum('spring','summer','fall','winter','all') COLLATE utf8mb4_unicode_ci DEFAULT 'all',
+  `care_type` enum('watering','light','fertilizer','pruning','repotting','propagation','pest_control','general') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tips` json DEFAULT NULL,
+  `common_mistakes` json DEFAULT NULL,
+  `display_order` int DEFAULT '0',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_plant_season` (`plant_id`,`season`),
+  KEY `idx_care_type` (`care_type`),
+  CONSTRAINT `care_guide_ibfk_1` FOREIGN KEY (`plant_id`) REFERENCES `plant` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    humidity_level      ENUM('low','medium','high') DEFAULT 'medium',
-    humidity_description VARCHAR(300),
+CREATE TABLE IF NOT EXISTS `plant_diary` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `plant_slug` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `plant_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `title` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` text COLLATE utf8mb4_unicode_ci,
+  `images` json DEFAULT NULL,
+  `weather` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `mood` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `height_cm` smallint DEFAULT NULL,
+  `leaf_count` smallint DEFAULT NULL,
+  `growth_stage` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_account`),
+  KEY `idx_plant` (`plant_slug`),
+  KEY `idx_created` (`created_at` DESC),
+  CONSTRAINT `plant_diary_ibfk_1` FOREIGN KEY (`user_account`) REFERENCES `user` (`account`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    temp_min_celsius    TINYINT,
-    temp_max_celsius    TINYINT,
-    temp_description    VARCHAR(300),
+CREATE TABLE IF NOT EXISTS `post` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `images` json DEFAULT NULL,
+  `plant_slug` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `category_slug` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `like_count` int DEFAULT '0',
+  `comment_count` int DEFAULT '0',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_account`),
+  KEY `idx_plant` (`plant_slug`),
+  KEY `idx_created` (`created_at` DESC),
+  KEY `idx_category` (`category_slug`),
+  CONSTRAINT `post_ibfk_1` FOREIGN KEY (`user_account`) REFERENCES `user` (`account`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    fertilizer_type     VARCHAR(100),
-    fertilizer_frequency ENUM('none','monthly','biweekly','weekly') DEFAULT 'monthly',
-    fertilizer_description VARCHAR(300),
+CREATE TABLE IF NOT EXISTS `post_comment` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `post_id` bigint NOT NULL,
+  `user_account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_account` (`user_account`),
+  KEY `idx_post` (`post_id`),
+  CONSTRAINT `post_comment_ibfk_1` FOREIGN KEY (`post_id`) REFERENCES `post` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `post_comment_ibfk_2` FOREIGN KEY (`user_account`) REFERENCES `user` (`account`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    soil_type           VARCHAR(200),
-    soil_ph_min         DECIMAL(3,1),
-    soil_ph_max         DECIMAL(3,1),
+CREATE TABLE IF NOT EXISTS `post_like` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `post_id` bigint NOT NULL,
+  `user_account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_post_user` (`post_id`,`user_account`),
+  KEY `user_account` (`user_account`),
+  CONSTRAINT `post_like_ibfk_1` FOREIGN KEY (`post_id`) REFERENCES `post` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `post_like_ibfk_2` FOREIGN KEY (`user_account`) REFERENCES `user` (`account`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    difficulty          ENUM('easy','medium','hard') NOT NULL,
-    growth_rate         ENUM('slow','moderate','fast') DEFAULT 'moderate',
-    max_height_cm       SMALLINT,
-    is_indoor           BOOLEAN DEFAULT TRUE,
-    is_outdoor          BOOLEAN DEFAULT FALSE,
-    is_pet_safe         BOOLEAN DEFAULT FALSE,
-    is_air_purifying    BOOLEAN DEFAULT FALSE,
+CREATE TABLE IF NOT EXISTS `user` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `avatar_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bio` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `account` (`account`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    -- Media
-    image_url           VARCHAR(500),
-    image_alt           VARCHAR(200),
-    gallery_urls        JSON,
-    model_3d_url        VARCHAR(500),
-    lottie_url          VARCHAR(500),
-
-    -- SEO
-    meta_title          VARCHAR(100),
-    meta_description    VARCHAR(200),
-
-    -- Status
-    is_featured         BOOLEAN DEFAULT FALSE,
-    view_count          INT DEFAULT 0,
-    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    INDEX idx_difficulty (difficulty),
-    INDEX idx_light (light_level),
-    INDEX idx_featured (is_featured),
-    FULLTEXT INDEX ft_search (common_name, scientific_name, description)
-);
-
--- Plant-Category join table
-CREATE TABLE IF NOT EXISTS plant_category (
-    plant_id    BIGINT NOT NULL,
-    category_id BIGINT NOT NULL,
-    PRIMARY KEY (plant_id, category_id),
-    FOREIGN KEY (plant_id) REFERENCES plant(id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES category(id) ON DELETE CASCADE
-);
-
--- Care guides table
-CREATE TABLE IF NOT EXISTS care_guide (
-    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-    plant_id        BIGINT NOT NULL,
-    season          ENUM('spring','summer','fall','winter','all') DEFAULT 'all',
-    care_type       ENUM('watering','light','fertilizer','pruning','repotting',
-                         'propagation','pest_control','general') NOT NULL,
-    title           VARCHAR(150) NOT NULL,
-    content         TEXT NOT NULL,
-    tips            JSON,
-    common_mistakes JSON,
-    display_order   INT DEFAULT 0,
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (plant_id) REFERENCES plant(id) ON DELETE CASCADE,
-    INDEX idx_plant_season (plant_id, season),
-    INDEX idx_care_type (care_type)
-);
-
--- Users table
-CREATE TABLE IF NOT EXISTS user (
-    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-    username        VARCHAR(50) NOT NULL,
-    account         VARCHAR(50) NOT NULL UNIQUE,
-    password        VARCHAR(255) NOT NULL,
-    avatar_url      VARCHAR(500),
-    bio             VARCHAR(300),
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Community posts table
-CREATE TABLE IF NOT EXISTS post (
-    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_account    VARCHAR(50) NOT NULL,
-    content         TEXT NOT NULL,
-    images          JSON,
-    plant_slug      VARCHAR(120),
-    category_slug   VARCHAR(60),
-    like_count      INT DEFAULT 0,
-    comment_count   INT DEFAULT 0,
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (user_account) REFERENCES user(account) ON DELETE CASCADE,
-    INDEX idx_user (user_account),
-    INDEX idx_plant (plant_slug),
-    INDEX idx_created (created_at DESC)
-);
-
--- Post likes table
-CREATE TABLE IF NOT EXISTS post_like (
-    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-    post_id         BIGINT NOT NULL,
-    user_account    VARCHAR(50) NOT NULL,
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_account) REFERENCES user(account) ON DELETE CASCADE,
-    UNIQUE KEY uk_post_user (post_id, user_account)
-);
-
--- Post comments table
-CREATE TABLE IF NOT EXISTS post_comment (
-    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-    post_id         BIGINT NOT NULL,
-    user_account    VARCHAR(50) NOT NULL,
-    content         TEXT NOT NULL,
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_account) REFERENCES user(account) ON DELETE CASCADE,
-    INDEX idx_post (post_id)
-);
-
--- Plant diary (growth journal)
-CREATE TABLE IF NOT EXISTS plant_diary (
-    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_account    VARCHAR(50) NOT NULL,
-    plant_slug      VARCHAR(120),
-    plant_name      VARCHAR(100),
-    title           VARCHAR(150) NOT NULL,
-    content         TEXT,
-    images          JSON,
-    weather         VARCHAR(50),
-    mood            VARCHAR(50),
-    height_cm       SMALLINT,
-    leaf_count      SMALLINT,
-    growth_stage    VARCHAR(30),
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (user_account) REFERENCES user(account) ON DELETE CASCADE,
-    INDEX idx_user (user_account),
-    INDEX idx_plant (plant_slug),
-    INDEX idx_created (created_at DESC)
-);
-
--- User plant collection
-CREATE TABLE IF NOT EXISTS user_plant_collection (
-    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id         BIGINT NOT NULL,
-    plant_id        BIGINT NOT NULL,
-    nickname        VARCHAR(50),
-    location        VARCHAR(100),
-    water_interval_days SMALLINT,
-    last_watered_at DATETIME,
-    next_water_at   DATETIME,
-    notes           TEXT,
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
-    FOREIGN KEY (plant_id) REFERENCES plant(id) ON DELETE CASCADE,
-    UNIQUE KEY uk_user_plant (user_id, plant_id)
-);
+CREATE TABLE IF NOT EXISTS `user_plant_collection` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `plant_id` bigint NOT NULL,
+  `nickname` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `location` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `water_interval_days` smallint DEFAULT NULL,
+  `last_watered_at` datetime DEFAULT NULL,
+  `next_water_at` datetime DEFAULT NULL,
+  `notes` text COLLATE utf8mb4_unicode_ci,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_plant` (`user_id`,`plant_id`),
+  KEY `plant_id` (`plant_id`),
+  CONSTRAINT `user_plant_collection_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `user_plant_collection_ibfk_2` FOREIGN KEY (`plant_id`) REFERENCES `plant` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

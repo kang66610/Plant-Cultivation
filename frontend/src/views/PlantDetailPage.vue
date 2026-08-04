@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import request from '@/api/request'
@@ -109,6 +109,7 @@ interface Plant {
 
 const plant = ref<Plant | null>(null)
 const loading = ref(true)
+const error = ref(false)
 const activeTab = ref('overview')
 
 const difficultyColors: Record<string, string> = {
@@ -131,15 +132,15 @@ const waterFreqMap = computed<Record<string, { label: string; level: number }>>(
   frequent: { label: t('encyclopedia.frequent'), level: 4 },
 }))
 
-const humidityMap = computed<Record<string, { label: string; level: number }>>(() => ({
-  low: { label: t('encyclopedia.lowLight'), level: 1 },
-  medium: { label: t('encyclopedia.mediumLight'), level: 2 },
-  high: { label: t('encyclopedia.brightLight'), level: 3 },
+const humidityLabels = computed<Record<string, string>>(() => ({
+  low: t('encyclopedia.humidityLow'),
+  medium: t('encyclopedia.humidityMedium'),
+  high: t('encyclopedia.humidityHigh'),
 }))
 
 const allTabs = computed(() => [
   'overview', 'morphology', 'environment', 'care',
-  'seasonal', 'pest', 'safety', 'problems', 'value'
+  'seasonal', 'pest', 'safety', 'problems', 'value', 'guides'
 ])
 
 function parseJson(val: string | null | undefined): any {
@@ -156,131 +157,38 @@ const problemKeyMap: Record<string, string> = {
   beginnerTip: '新手建议',
 }
 
-onMounted(async () => {
+// i18n 缺失 key 时 t() 返回 key 字符串本身（truthy），不能用 || 做回退，用映射表
+const growthLabels = computed<Record<string, string>>(() => ({
+  slow: t('detail.slow'),
+  moderate: t('detail.moderate'),
+  fast: t('detail.fast'),
+}))
+
+async function fetchPlant() {
   const slug = route.params.slug as string
+  loading.value = true
+  error.value = false
+  plant.value = null
   try {
     const res: any = await request.get(`/plants/${slug}`)
-    plant.value = res.data
-  } catch {
-    plant.value = {
-      id: 1,
-      commonName: '龟背竹',
-      aliases: '蓬莱蕉、电线兰',
-      scientificName: 'Monstera deliciosa',
-      slug: 'monstera-deliciosa',
-      family: '天南星科',
-      genusName: '龟背竹属',
-      plantType: '草本',
-      growthCycle: '多年生',
-      ornamentalType: '观叶',
-      origin: '中美洲',
-      description: '这种标志性的瑞士奶酪植物因其在成熟过程中形成的戏剧性穿孔叶片而备受喜爱。生长迅速的热带攀援植物，可以将任何房间变成丛林天堂。',
-      shortDescription: '标志性裂叶热带植物',
-      imageUrl: '/images/plants/monstera.jpg',
-      leafShape: '心形至卵形，成熟叶片有深裂和孔洞',
-      leafColor: '深绿色，有光泽',
-      stemFeature: '粗壮的绿色茎干，带有气生根',
-      flowerShape: '佛焰苞花序，白色或乳白色',
-      flowerColor: '白色',
-      bloomMonth: '全年可开花',
-      fruitPeriod: '秋季',
-      overallShape: '大型攀援植物，可长至2-3米',
-      lightLevel: 'medium',
-      lightHoursMin: 4,
-      lightHoursMax: 6,
-      lightDescription: '喜欢明亮的间接光。避免直射阳光，否则会灼伤叶片。',
-      waterFrequency: 'weekly',
-      waterIntervalDaysMin: 7,
-      waterIntervalDaysMax: 10,
-      waterDescription: '当土壤顶部2-3英寸干燥时浇水。冬季减少浇水。',
-      waterPrinciple: '见干见湿，表土干燥再浇',
-      waterSpring: '每周1-2次',
-      waterSummer: '每周2次',
-      waterFall: '每周1次',
-      waterWinter: '每10-14天1次',
-      waterTaboo: '忌积水，忌浇叶心',
-      waterQuality: '室温自来水即可',
-      humidityLevel: 'high',
-      humidityDescription: '喜欢60%以上的湿度。定期喷雾或使用加湿器。',
-      tempMinCelsius: 18,
-      tempMaxCelsius: 30,
-      tempColdMin: 10,
-      tempHeatMax: 35,
-      summerDormancy: false,
-      suitablePosition: '客厅、书房、明亮的窗边',
-      growthHabit: '喜温暖湿润，怕寒冷，耐阴性强',
-      tempDescription: '喜欢18-30°C之间的温暖温度。远离冷风。',
-      fertilizerType: '平衡20-20-20',
-      fertilizerFrequency: 'monthly',
-      fertilizerDescription: '春夏每月施肥一次，使用稀释至一半强度的平衡液体肥料。',
-      fertilizerBestSeason: '春季和夏季',
-      fertilizerGrow: '平衡氮磷钾液肥',
-      fertilizerBloom: '高磷肥促进开花',
-      fertilizerStopDormancy: true,
-      fertilizerTaboo: '忌浓肥、生肥，冬季不施肥',
-      deficiencySymptom: '叶片发黄、生长缓慢、叶小',
-      soilType: '排水良好的天南星科混合土',
-      soilRecipe: '泥炭土:珍珠岩:树皮 = 2:1:1',
-      soilPhMin: 5.5,
-      soilPhMax: 7.0,
-      potType: '陶盆或塑料盆均可',
-      potSizeSuggestion: '口径15-25cm',
-      repotCycle: '每1-2年换盆一次',
-      pruneBestTime: '春季',
-      pruneParts: '黄叶、过长枝条、枯叶',
-      pruneMethod: '在节点上方修剪，促进分枝',
-      pruneTaboo: '避免在冬季重剪',
-      seasonalCare: JSON.stringify({
-        spring: '开始恢复正常浇水和施肥，检查是否需要换盆',
-        summer: '增加浇水频率，定期喷雾保湿，避免强光直射',
-        fall: '逐渐减少浇水和施肥，准备过冬',
-        winter: '减少浇水，停止施肥，远离暖气和冷风'
-      }),
-      pestDisease: JSON.stringify({
-        diseases: [
-          { name: '根腐病', symptom: '叶片发黄、萎蔫', cause: '过度浇水', treatment: '取出修剪烂根，换新土重新栽种' },
-          { name: '叶斑病', symptom: '叶片出现褐色斑点', cause: '通风不良、湿度过高', treatment: '修剪病叶，改善通风，喷洒杀菌剂' }
-        ],
-        pests: [
-          { name: '红蜘蛛', symptom: '叶片背面有细小红色虫子，叶片发黄', treatment: '喷水增加湿度，使用杀螨剂' },
-          { name: '蚧壳虫', symptom: '茎叶上有白色蜡质物', treatment: '用酒精棉签擦拭，严重时使用杀虫剂' }
-        ],
-        prevention: '保持良好通风，避免过度浇水，定期检查叶片'
-      }),
-      toxicityLevel: '有毒',
-      toxicParts: '汁液和叶片',
-      toxicitySymptom: '含有草酸钙针晶，误食会导致口腔和消化道刺激、肿胀',
-      petKidWarning: '对猫狗有毒，家有宠物和小孩应放在高处',
-      commonProblems: JSON.stringify({
-        yellowLeaves: '过度浇水、光照不足、温度过低',
-        noBloom: '光照不足、植株不够成熟',
-        leggy: '光照不足，需要增加光照',
-        drooping: '缺水、温度过低或根腐',
-        mainTaboo: '过度浇水和低温是最大杀手',
-        beginnerTip: '等表土干燥再浇水，放在明亮散射光处'
-      }),
-      ornamentalValue: '大型热带观叶植物，叶片独特美观，是室内装饰的焦点植物',
-      airPurifyDetail: '能有效去除室内甲醛、苯、二甲苯等有害气体',
-      edibleValue: '果实成熟后可食用，味道类似菠萝和香蕉的混合',
-      medicinalValue: '传统医学中用于消炎止痛',
-      fengShui: '象征健康、长寿和好运',
-      suitableScene: '客厅、办公室、酒店大堂、商场',
-      difficulty: 'easy',
-      growthRate: 'fast',
-      maxHeightCm: 300,
-      isIndoor: true,
-      isOutdoor: false,
-      isPetSafe: false,
-      isAirPurifying: true,
-      careGuides: [
-        { id: 1, careType: 'watering', title: '龟背竹浇水指南', content: '当土壤顶部2-3英寸感觉干燥时给龟背竹浇水。', tips: '["使用室温水", "30分钟后清空托盘"]', commonMistakes: '["过度浇水会导致根腐病"]' },
-        { id: 2, careType: 'light', title: '龟背竹光照要求', content: '明亮的间接光是理想的。', tips: '["每月旋转一次"]', commonMistakes: '["直射阳光会灼伤叶片"]' },
-      ],
+    // 后端对不存在的 slug 返回 HTTP 200 + code 404，必须检查 code
+    if (res.code === 200 && res.data) {
+      plant.value = res.data
+    } else {
+      error.value = true
     }
+  } catch {
+    // 加载失败时显示错误提示，不伪造假数据
+    error.value = true
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(fetchPlant)
+
+// 路由参数变化（前进/后退切换植物）时重新加载
+watch(() => route.params.slug, fetchPlant)
 </script>
 
 <template>
@@ -326,7 +234,7 @@ onMounted(async () => {
         <div class="detail__specs">
           <div class="detail__spec">
             <span class="detail__spec-label">{{ $t('detail.growthRate') }}</span>
-            <span class="detail__spec-value">{{ $t('detail.' + plant.growthRate) || plant.growthRate }}</span>
+            <span class="detail__spec-value">{{ growthLabels[plant.growthRate] || plant.growthRate }}</span>
           </div>
           <div class="detail__spec">
             <span class="detail__spec-label">{{ $t('detail.maxHeight') }}</span>
@@ -422,9 +330,9 @@ onMounted(async () => {
             <div class="detail__care-icon">💨</div>
             <h3>{{ $t('detail.humidity') }}</h3>
             <div class="detail__care-meter">
-              <div class="detail__care-fill detail__care-fill--humidity" :style="{ width: `${(humidityMap[plant.humidityLevel]?.level || 1) * 33}%` }" />
+              <div class="detail__care-fill detail__care-fill--humidity" :style="{ width: plant.humidityLevel === 'high' ? '100%' : plant.humidityLevel === 'medium' ? '66%' : '33%' }" />
             </div>
-            <p class="detail__care-label">{{ humidityMap[plant.humidityLevel]?.label }}</p>
+            <p class="detail__care-label">{{ humidityLabels[plant.humidityLevel] || plant.humidityLevel }}</p>
             <p class="detail__care-desc">{{ plant.humidityDescription }}</p>
           </div>
         </div>
@@ -542,32 +450,32 @@ onMounted(async () => {
       <div v-if="activeTab === 'pest'" class="detail__section">
         <template v-if="parseJson(plant.pestDisease)">
           <div v-if="parseJson(plant.pestDisease).diseases?.length">
-            <h3 class="detail__sub-title">常见病害</h3>
+            <h3 class="detail__sub-title">{{ $t('detail.commonDiseases') }}</h3>
             <div class="detail__pest-list">
               <div class="detail__pest-item" v-for="(d, i) in parseJson(plant.pestDisease).diseases" :key="i">
                 <h4>{{ d.name }}</h4>
-                <p><strong>症状：</strong>{{ d.symptom }}</p>
-                <p><strong>诱因：</strong>{{ d.cause }}</p>
-                <p><strong>治疗：</strong>{{ d.treatment }}</p>
+                <p><strong>{{ $t('detail.symptom') }}：</strong>{{ d.symptom }}</p>
+                <p><strong>{{ $t('detail.cause') }}：</strong>{{ d.cause }}</p>
+                <p><strong>{{ $t('detail.treatment') }}：</strong>{{ d.treatment }}</p>
               </div>
             </div>
           </div>
           <div v-if="parseJson(plant.pestDisease).pests?.length">
-            <h3 class="detail__sub-title">常见虫害</h3>
+            <h3 class="detail__sub-title">{{ $t('detail.commonPests') }}</h3>
             <div class="detail__pest-list">
               <div class="detail__pest-item" v-for="(p, i) in parseJson(plant.pestDisease).pests" :key="i">
                 <h4>{{ p.name }}</h4>
-                <p><strong>表现：</strong>{{ p.symptom }}</p>
-                <p><strong>防治：</strong>{{ p.treatment }}</p>
+                <p><strong>{{ $t('detail.symptom') }}：</strong>{{ p.symptom }}</p>
+                <p><strong>{{ $t('detail.control') }}：</strong>{{ p.treatment }}</p>
               </div>
             </div>
           </div>
           <div class="detail__text-block" v-if="parseJson(plant.pestDisease).prevention">
-            <h3>日常预防</h3>
+            <h3>{{ $t('detail.dailyPrevention') }}</h3>
             <p>{{ parseJson(plant.pestDisease).prevention }}</p>
           </div>
         </template>
-        <p v-else class="detail__empty">暂无病虫害数据</p>
+        <p v-else class="detail__empty">{{ $t('detail.noPestData') }}</p>
       </div>
 
       <!-- 毒性安全 -->
@@ -640,13 +548,13 @@ onMounted(async () => {
         <div v-for="guide in plant.careGuides" :key="guide.id" class="detail__guide">
           <h3 class="detail__guide-title">{{ guide.title }}</h3>
           <p class="detail__guide-content">{{ guide.content }}</p>
-          <div v-if="guide.tips" class="detail__guide-tips">
+          <div v-if="parseJson(guide.tips)" class="detail__guide-tips">
             <h4>{{ $t('detail.tips') }}</h4>
-            <ul><li v-for="(tip, i) in JSON.parse(guide.tips)" :key="i">{{ tip }}</li></ul>
+            <ul><li v-for="(tip, i) in parseJson(guide.tips)" :key="i">{{ tip }}</li></ul>
           </div>
-          <div v-if="guide.commonMistakes" class="detail__guide-mistakes">
+          <div v-if="parseJson(guide.commonMistakes)" class="detail__guide-mistakes">
             <h4>{{ $t('detail.commonMistakes') }}</h4>
-            <ul><li v-for="(m, i) in JSON.parse(guide.commonMistakes)" :key="i">{{ m }}</li></ul>
+            <ul><li v-for="(m, i) in parseJson(guide.commonMistakes)" :key="i">{{ m }}</li></ul>
           </div>
         </div>
       </div>
@@ -656,6 +564,10 @@ onMounted(async () => {
   <div v-else-if="loading" class="detail__loading">
     <div class="detail__loading-spinner" />
     <p>{{ $t('detail.loading') }}</p>
+  </div>
+
+  <div v-else-if="error" class="detail__loading">
+    <p>{{ $t('detail.loadError') }}</p>
   </div>
 </template>
 

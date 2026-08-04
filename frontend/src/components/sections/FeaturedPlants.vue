@@ -119,7 +119,7 @@ function goToPlant(slug: string) {
               class="featured__card-badge"
               :style="{ background: difficultyColors[plant.difficulty] || '#22c55e' }"
             >
-              {{ plant.difficulty }}
+              {{ $t('encyclopedia.' + plant.difficulty) }}
             </span>
             <span class="featured__card-icon">{{ lightIcons[plant.lightLevel] || '☀️' }}</span>
             <span class="featured__card-icon">{{ waterIcons[plant.waterFrequency] || '💧' }}</span>

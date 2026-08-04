@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Plant {
   id: number | string
@@ -25,9 +28,9 @@ const rotateY = ref(0)
 const isHovering = ref(false)
 
 const difficultyConfig = {
-  easy: { label: 'Easy', color: 'bg-emerald-100 text-emerald-700' },
-  medium: { label: 'Medium', color: 'bg-amber-100 text-amber-700' },
-  hard: { label: 'Hard', color: 'bg-red-100 text-red-700' },
+  easy: { label: () => t('encyclopedia.easy'), color: 'bg-emerald-100 text-emerald-700' },
+  medium: { label: () => t('encyclopedia.medium'), color: 'bg-amber-100 text-amber-700' },
+  hard: { label: () => t('encyclopedia.hard'), color: 'bg-red-100 text-red-700' },
 }
 
 function handleMouseMove(e: MouseEvent) {
@@ -93,7 +96,7 @@ function navigateToPlant() {
           class="plant-card__badge"
           :class="difficultyConfig[plant.difficulty].color"
         >
-          {{ difficultyConfig[plant.difficulty].label }}
+          {{ difficultyConfig[plant.difficulty].label() }}
         </span>
       </div>
 

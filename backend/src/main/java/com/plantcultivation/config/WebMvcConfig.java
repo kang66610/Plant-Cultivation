@@ -19,10 +19,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // Serve uploaded files
-        String uploadsPath = uploadDir.replace('\\', '/');
-        if (!uploadsPath.endsWith("/")) uploadsPath += "/";
+        // 用 Path.toUri() 生成合法 file URI（Windows: file:///D:/...，Linux: file:///www/...）
+        String uploadsPath = java.nio.file.Path.of(uploadDir).toUri().toString();
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + uploadsPath);
+                .addResourceLocations(uploadsPath);
 
         // Serve frontend static files (optional - Nginx handles this in production)
         String distPath = null;

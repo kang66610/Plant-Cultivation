@@ -115,6 +115,8 @@ JWT_SECRET=你的JWT密钥
 UPLOAD_DIR=/www/wwwroot/uploads
 ```
 
+⚠️ **`DB_PASSWORD` 与 `JWT_SECRET` 为必需项**：代码已移除默认值，缺失会导致服务启动失败（fail fast，防止默认密钥被伪造登录 token）。
+
 修改后需重启服务生效：`systemctl restart plant-cultivation`
 
 ---

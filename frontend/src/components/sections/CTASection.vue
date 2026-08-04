@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const sectionVisible = ref(false)
 const sectionRef = ref<HTMLElement>()
@@ -31,15 +34,15 @@ onMounted(() => {
 
     <div class="cta__content">
       <div class="cta__icon">🌿</div>
-      <h2 class="cta__title">开始你的绿色之旅</h2>
-      <p class="cta__text">探索 50+ 种植物的详细养护指南，找到最适合你的绿色伙伴</p>
+      <h2 class="cta__title">{{ t('home.ctaTitle') }}</h2>
+      <p class="cta__text">{{ t('home.ctaText') }}</p>
       <div class="cta__actions">
         <router-link to="/encyclopedia" class="cta__button cta__button--primary">
-          浏览植物百科
+          {{ t('home.ctaBrowse') }}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cta__button-icon"><path d="M5 12h14m-7-7l7 7-7 7"/></svg>
         </router-link>
-        <router-link to="/quiz" class="cta__button cta__button--secondary">
-          光照问答
+        <router-link to="/tools/light-quiz" class="cta__button cta__button--secondary">
+          {{ t('home.ctaQuiz') }}
         </router-link>
       </div>
     </div>

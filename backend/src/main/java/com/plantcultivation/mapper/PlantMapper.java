@@ -21,4 +21,8 @@ public interface PlantMapper extends BaseMapper<Plant> {
 
     @Select("SELECT * FROM plant WHERE MATCH(common_name, scientific_name, description) AGAINST(#{keyword} IN BOOLEAN MODE) LIMIT #{limit}")
     List<Plant> fullTextSearch(@Param("keyword") String keyword, @Param("limit") int limit);
+
+    /** 自然语言模式搜索：用户输入中的特殊字符不会触发 BOOLEAN MODE 语法错误 */
+    @Select("SELECT * FROM plant WHERE MATCH(common_name, scientific_name, description) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE) LIMIT #{limit}")
+    List<Plant> naturalSearch(@Param("keyword") String keyword, @Param("limit") int limit);
 }

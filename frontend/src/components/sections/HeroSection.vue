@@ -251,6 +251,18 @@ function handleMouseMove(e: MouseEvent) {
   mouseY = (e.clientY / window.innerHeight - 0.5) * 10
 }
 
+// 具名 resize 处理器：onUnmounted 时才能移除（匿名函数会泄漏监听器）
+function handleResize() {
+  if (canvasRef.value) {
+    canvasRef.value.width = window.innerWidth
+    canvasRef.value.height = window.innerHeight
+  }
+  if (fallCanvasRef.value) {
+    fallCanvasRef.value.width = window.innerWidth
+    fallCanvasRef.value.height = window.innerHeight
+  }
+}
+
 onMounted(() => {
   // Word reveal animation
   resetReveal()
@@ -268,22 +280,14 @@ onMounted(() => {
   }
 
   window.addEventListener('mousemove', handleMouseMove)
-  window.addEventListener('resize', () => {
-    if (canvasRef.value) {
-      canvasRef.value.width = window.innerWidth
-      canvasRef.value.height = window.innerHeight
-    }
-    if (fallCanvasRef.value) {
-      fallCanvasRef.value.width = window.innerWidth
-      fallCanvasRef.value.height = window.innerHeight
-    }
-  })
+  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
   cancelAnimationFrame(animationId)
   cancelAnimationFrame(fallAnimationId)
   window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 

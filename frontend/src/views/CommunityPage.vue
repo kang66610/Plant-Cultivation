@@ -165,9 +165,8 @@ async function handleUploadImage(e: Event) {
   const formData = new FormData()
   formData.append('file', file)
   try {
-    const res: any = await request.post('/upload/image', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    // 不手动设置 Content-Type：让浏览器自动生成带 boundary 的 multipart 头
+    const res: any = await request.post('/upload/image', formData)
     if (res.code === 200) {
       newPost.value.images.push(res.data)
     }
@@ -224,8 +223,11 @@ async function addComment(postId: number) {
 
 async function deletePost(postId: number) {
   try {
-    await request.delete(`/posts/${postId}`)
-    posts.value = posts.value.filter(p => p.id !== postId)
+    const res: any = await request.delete(`/posts/${postId}`)
+    // 仅在后端确认成功后移除本地条目（无权限等场景后端返回 code≠200）
+    if (res.code === 200) {
+      posts.value = posts.value.filter(p => p.id !== postId)
+    }
   } catch {}
 }
 
@@ -239,13 +241,13 @@ function formatDate(dateStr: string): string {
   const now = new Date()
   const diff = now.getTime() - d.getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return '刚刚'
-  if (mins < 60) return `${mins}分钟前`
+  if (mins < 1) return t('community.justNow')
+  if (mins < 60) return t('community.minutesAgo', { n: mins })
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}小时前`
+  if (hours < 24) return t('community.hoursAgo', { n: hours })
   const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}天前`
-  return d.toLocaleDateString('zh-CN')
+  if (days < 7) return t('community.daysAgo', { n: days })
+  return d.toLocaleDateString()
 }
 
 function goToPlant(slug: string) {
