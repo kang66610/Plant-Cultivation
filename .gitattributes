@@ -7,6 +7,9 @@
 # Shell 脚本必须用 LF（CRLF 会导致 "bad interpreter" 错误）
 *.sh text eol=lf
 
+# Gradle 包装器脚本（无扩展名，必须单独指定，且保持可执行权限）
+gradlew text eol=lf
+
 # systemd 服务文件必须用 LF
 *.service text eol=lf
 

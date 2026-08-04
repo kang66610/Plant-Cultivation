@@ -29,7 +29,10 @@ jobs:
 
       - name: Build with Gradle
         working-directory: backend
-        run: ./gradlew bootJar --no-daemon
+        # chmod 确保 Windows 提交丢失的执行权限在 CI 中恢复
+        run: |
+          chmod +x gradlew
+          ./gradlew bootJar --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
