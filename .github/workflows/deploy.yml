@@ -84,8 +84,10 @@ jobs:
           HOST: ${{ secrets.SERVER_HOST }}
           USER: ${{ secrets.SERVER_USER }}
           PORT: ${{ secrets.SERVER_PORT }}
+          # SSH_KEY 通过 env 传递（secrets 内嵌在 run 中会破坏多行格式）
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
         run: |
-          echo "${{ secrets.SERVER_SSH_KEY }}" > /tmp/deploy_key
+          echo "$SSH_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
           scp -i /tmp/deploy_key -P "$PORT" -o StrictHostKeyChecking=no -r \
             artifacts/frontend-dist "$USER@$HOST:/www/wwwroot/plant-cultivation/frontend-new"
