@@ -6,6 +6,7 @@ backend/bin/
 backend/.bloop/
 *.class
 *.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 *.war
 *.ear
 *.log
