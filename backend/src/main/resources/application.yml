@@ -4,8 +4,8 @@ server:
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/plant_cultivation?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
-    username: root
-    password: ${DB_PASSWORD:}
+    username: plant_cultivation
+    password: ${DB_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
   servlet:
     multipart:
@@ -21,8 +21,11 @@ mybatis-plus:
       id-type: auto
 
 jwt:
-  secret: ${JWT_SECRET:}
+  secret: ${JWT_SECRET:YXB0LXBsYW50LWN1bHRpdmF0aW9uLXNlY3JldC1rZXktMjAyNg==}
   expiration: 86400000  # 24 hours
+
+app:
+  upload-dir: ${UPLOAD_DIR:/www/wwwroot/uploads}
 
 logging:
   level:

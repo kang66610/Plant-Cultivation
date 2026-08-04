@@ -1,0 +1,24 @@
+# systemd 服务文件
+# 放置位置：/etc/systemd/system/plant-cultivation.service
+# 启用方式：
+#   sudo cp scripts/server/plant-cultivation.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now plant-cultivation
+#
+# 环境变量在 /www/wwwroot/plant-cultivation/.env 中配置，
+# 由 deploy.sh 加载后 export 给本服务（通过 EnvironmentFile 读取）
+
+[Unit]
+Description=Plant Cultivation Backend
+After=network.target mysql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/www/wwwroot/plant-cultivation/backend
+EnvironmentFile=/www/wwwroot/plant-cultivation/.env
+ExecStart=/usr/bin/java -jar /www/wwwroot/plant-cultivation/backend/app.jar
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

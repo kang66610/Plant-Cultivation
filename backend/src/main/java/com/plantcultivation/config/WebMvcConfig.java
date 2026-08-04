@@ -1,5 +1,6 @@
 package com.plantcultivation.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -12,28 +13,18 @@ import java.io.IOException;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
+    @Value("${app.upload-dir:/www/wwwroot/uploads}")
+    private String uploadDir;
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Serve uploaded files - detect correct directory
-        String userDir = System.getProperty("user.dir").replace('\\', '/');
-        File uploadsDir = null;
-        for (String p : new String[]{
-            userDir + "/frontend/public/uploads",
-            userDir + "/../frontend/public/uploads",
-        }) {
-            File f = new File(p);
-            if (f.exists()) { uploadsDir = f; break; }
-        }
-        if (uploadsDir == null) {
-            uploadsDir = new File(userDir + "/frontend/public/uploads");
-            uploadsDir.mkdirs();
-        }
-        String uploadsPath = uploadsDir.getAbsolutePath().replace('\\', '/');
+        // Serve uploaded files
+        String uploadsPath = uploadDir.replace('\\', '/');
         if (!uploadsPath.endsWith("/")) uploadsPath += "/";
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:" + uploadsPath);
 
-        // IntelliJ and command line have different CWDs; try both
+        // Serve frontend static files (optional - Nginx handles this in production)
         String distPath = null;
         String[] candidates = {"frontend/dist", "../frontend/dist"};
         for (String cand : candidates) {
@@ -43,32 +34,29 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 break;
             }
         }
-        if (distPath == null) {
-            throw new RuntimeException(
-                "Cannot find frontend/dist. Run: cd frontend && npm run build");
-        }
-        if (!distPath.endsWith("/")) distPath += "/";
-
-        registry.addResourceHandler("/**")
-                .addResourceLocations("file:" + distPath)
-                .resourceChain(true)
-                .addResolver(new PathResourceResolver() {
-                    @Override
-                    protected Resource getResource(String resourcePath, Resource location)
-                            throws IOException {
-                        if (resourcePath.startsWith("api/")) {
+        if (distPath != null) {
+            if (!distPath.endsWith("/")) distPath += "/";
+            registry.addResourceHandler("/**")
+                    .addResourceLocations("file:" + distPath)
+                    .resourceChain(true)
+                    .addResolver(new PathResourceResolver() {
+                        @Override
+                        protected Resource getResource(String resourcePath, Resource location)
+                                throws IOException {
+                            if (resourcePath.startsWith("api/")) {
+                                return null;
+                            }
+                            Resource file = location.createRelative(resourcePath);
+                            if (file.exists() && file.isReadable()) {
+                                return file;
+                            }
+                            Resource index = location.createRelative("index.html");
+                            if (index.exists() && index.isReadable()) {
+                                return index;
+                            }
                             return null;
                         }
-                        Resource file = location.createRelative(resourcePath);
-                        if (file.exists() && file.isReadable()) {
-                            return file;
-                        }
-                        Resource index = location.createRelative("index.html");
-                        if (index.exists() && index.isReadable()) {
-                            return index;
-                        }
-                        return null;
-                    }
-                });
+                    });
+        }
     }
 }

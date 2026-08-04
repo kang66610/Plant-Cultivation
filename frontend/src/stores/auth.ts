@@ -26,9 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchUser() {
     if (!token.value) return
     try {
-      const res: any = await request.get('/auth/me', {
-        headers: { Authorization: `Bearer ${token.value}` }
-      })
+      const res: any = await request.get('/auth/me')
       if (res.code === 200) {
         user.value = res.data
       } else {
@@ -76,9 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const body: any = { username, bio }
       if (avatarUrl !== undefined) body.avatarUrl = avatarUrl
-      const res: any = await request.put('/auth/profile', body, {
-        headers: { Authorization: `Bearer ${token.value}` }
-      })
+      const res: any = await request.put('/auth/profile', body)
       if (res.code === 200) {
         user.value = res.data
         return null
@@ -91,9 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function changePassword(oldPassword: string, newPassword: string): Promise<string | null> {
     try {
-      const res: any = await request.put('/auth/password', { oldPassword, newPassword }, {
-        headers: { Authorization: `Bearer ${token.value}` }
-      })
+      const res: any = await request.put('/auth/password', { oldPassword, newPassword })
       if (res.code === 200) return null
       return res.message
     } catch (e: any) {

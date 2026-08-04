@@ -1,0 +1,34 @@
+# ============================================================
+# Git 行尾统一配置
+# 强制脚本/服务文件始终使用 LF，防止 Windows 下被转成 CRLF
+# 导致 Linux 服务器上脚本无法运行
+# ============================================================
+
+# Shell 脚本必须用 LF（CRLF 会导致 "bad interpreter" 错误）
+*.sh text eol=lf
+
+# systemd 服务文件必须用 LF
+*.service text eol=lf
+
+# 环境变量文件必须用 LF（source 时 \r 会被当作变量名一部分）
+.env* text eol=lf
+
+# 普通代码文件：按平台默认处理（Windows 用 CRLF 即可）
+*.java text
+*.ts text
+*.vue text
+*.json text
+*.yml text
+*.yaml text
+*.md text
+
+# 二进制文件不做转换
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
