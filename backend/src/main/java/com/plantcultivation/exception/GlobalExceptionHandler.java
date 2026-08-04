@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -31,6 +32,14 @@ public class GlobalExceptionHandler {
     public ResultVO<Void> handleNoResource(NoResourceFoundException e) {
         // Spring 6：静态资源/接口路径不存在时抛出，统一返回 404 而非 500
         return ResultVO.error(404, "资源不存在");
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ResultVO<Void>> handleMaxUpload(MaxUploadSizeExceededException e) {
+        // 超过 multipart 上限（application.yml max-file-size: 10MB）时 Spring 抛此异常，
+        // 语义是客户端错误（413），不能落到兜底 500
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ResultVO.error(413, "文件大小不能超过10MB"));
     }
 
     @ExceptionHandler(Exception.class)

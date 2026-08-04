@@ -21,6 +21,7 @@ const passwordError = ref('')
 const passwordSuccess = ref('')
 
 const avatarUploading = ref(false)
+const avatarUploadError = ref('')
 
 // ---- 我的收藏（浇水提醒） ----
 const showCollections = ref(false)
@@ -103,6 +104,7 @@ async function handleAvatarUpload(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   avatarUploading.value = true
+  avatarUploadError.value = ''
   const formData = new FormData()
   formData.append('file', file)
   try {
@@ -113,9 +115,15 @@ async function handleAvatarUpload(e: Event) {
       const err = await auth.updateProfile(auth.user!.username, auth.user!.bio || '', avatarUrl)
       if (!err) {
         editSuccess.value = t('community.avatarUpdated')
+      } else {
+        avatarUploadError.value = err
       }
+    } else {
+      avatarUploadError.value = res.message || t('community.avatarUploadFailed')
     }
-  } catch {} finally {
+  } catch (e: any) {
+    avatarUploadError.value = e.response?.data?.message || t('community.avatarUploadFailed')
+  } finally {
     avatarUploading.value = false
   }
 }
@@ -164,6 +172,7 @@ function handleLogout() {
         </label>
         <h1 class="user-center__name">{{ auth.user?.username }}</h1>
         <p class="user-center__account">@{{ auth.user?.account }}</p>
+        <p v-if="avatarUploadError" class="user-center__error">{{ avatarUploadError }}</p>
       </div>
 
       <div v-if="!editMode" class="user-center__info">

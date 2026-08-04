@@ -4,9 +4,9 @@ import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'a
 const request: AxiosInstance = axios.create({
   baseURL: '/api',
   timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // 注意：不在这里设置全局 Content-Type。
+  // JSON 对象 axios 会自动设 application/json；FormData 由浏览器自动生成 multipart/boundary。
+  // 手动设置会导致 multipart 上传失败（无 boundary 或错误 Content-Type）。
 })
 
 // 轻量提示（避免为单个提示引入 element-plus 全量样式）

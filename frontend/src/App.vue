@@ -4,8 +4,12 @@ import { RouterView } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useBackendAutoReload } from '@/composables/useBackendAutoReload'
 
 const auth = useAuthStore()
+
+// 开发模式：后端重启完成后自动刷新页面（改 Java 代码 → 重启后端 → 页面自动刷新）
+useBackendAutoReload()
 
 function handleAuthExpired() {
   auth.logout()

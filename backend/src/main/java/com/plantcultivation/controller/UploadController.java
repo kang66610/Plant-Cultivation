@@ -52,6 +52,11 @@ public class UploadController {
         if (!ImageValidator.isValidImage(bytes)) {
             return ResultVO.error(400, "文件内容不是有效图片");
         }
+        // 尺寸超限属于客户端错误（返回 400 而非 500），手机高分辨率/全景照片常见
+        String dimensionError = checkImageDimensions(bytes);
+        if (dimensionError != null) {
+            return ResultVO.error(400, dimensionError);
+        }
         try {
             CompressedImage compressed = compressImage(bytes);
             String url = saveFile(compressed.bytes(), file.getOriginalFilename(), compressed.format());
@@ -59,6 +64,30 @@ public class UploadController {
         } catch (IOException e) {
             return ResultVO.error(500, "上传失败: " + e.getMessage());
         }
+    }
+
+    /** 只读图片头部检查尺寸，超限返回错误消息（不完整解码，防解压炸弹）。 */
+    private String checkImageDimensions(byte[] bytes) {
+        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+            if (!readers.hasNext()) {
+                return null; // 交由 ImageValidator 已在前面处理
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(iis);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+                    return "图片尺寸过大（单边最大 " + MAX_IMAGE_DIMENSION + "px）";
+                }
+            } finally {
+                reader.dispose();
+            }
+        } catch (IOException ignored) {
+            // 读取头部失败时放弃尺寸检查，交由后续流程处理
+        }
+        return null;
     }
 
     /** 压缩结果：bytes 为最终字节，format 为存储扩展名（重编码后统一 jpg） */

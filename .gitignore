@@ -54,6 +54,7 @@ ngrok.exe
 
 # === User uploads (large media files, not suitable for git) ===
 frontend/public/uploads/
+backend/uploads/
 
 # === Database scripts (keep schema SQL, ignore data dumps) ===
 *.sql.bak
