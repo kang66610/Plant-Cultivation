@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onBeforeUpdate, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { listCategories, listPlants } from '@/api/plantApi'
@@ -22,6 +22,7 @@ const activeLight = ref('')
 const activeWater = ref('')
 const indoorOnly = ref(false)
 const petSafeOnly = ref(false)
+const filterGroups = ref<Record<string, { container: HTMLElement | null; buttons: HTMLButtonElement[] }>>({})
 
 const difficultyLabels = computed<Record<string, string>>(() => ({
   easy: t('encyclopedia.easy'),
@@ -48,6 +49,53 @@ const waterLabels = computed<Record<string, string>>(() => ({
   biweekly: t('encyclopedia.biweekly'),
   frequent: t('encyclopedia.frequent'),
 }))
+
+const categoryFilterOptions = computed(() => ['', ...categories.value.map((cat) => cat.slug)])
+const difficultyFilterOptions = ['', 'easy', 'medium', 'hard']
+const lightFilterOptions = ['', 'low', 'medium', 'high', 'bright_direct']
+const waterFilterOptions = ['', 'rarely', 'weekly', 'biweekly', 'frequent']
+
+function ensureFilterGroup(key: string) {
+  if (!filterGroups.value[key]) {
+    filterGroups.value[key] = { container: null, buttons: [] }
+  }
+  return filterGroups.value[key]
+}
+
+function setFilterGroupRef(key: string, el: unknown) {
+  ensureFilterGroup(key).container = el instanceof HTMLElement ? el : null
+}
+
+function setFilterButtonRef(key: string, el: unknown) {
+  if (el instanceof HTMLButtonElement) {
+    ensureFilterGroup(key).buttons.push(el)
+  }
+}
+
+function activeFilterIndex(key: string) {
+  if (key === 'category') return Math.max(0, categoryFilterOptions.value.indexOf(activeCategory.value))
+  if (key === 'difficulty') return Math.max(0, difficultyFilterOptions.indexOf(activeDifficulty.value))
+  if (key === 'light') return Math.max(0, lightFilterOptions.indexOf(activeLight.value))
+  if (key === 'water') return Math.max(0, waterFilterOptions.indexOf(activeWater.value))
+  return 0
+}
+
+function updateFilterIndicator(key: string) {
+  nextTick(() => {
+    const group = filterGroups.value[key]
+    const button = group?.buttons[activeFilterIndex(key)]
+    if (!group?.container || !button) return
+
+    group.container.style.setProperty('--filter-indicator-x', `${button.offsetLeft}px`)
+    group.container.style.setProperty('--filter-indicator-y', `${button.offsetTop}px`)
+    group.container.style.setProperty('--filter-indicator-width', `${button.offsetWidth}px`)
+    group.container.style.setProperty('--filter-indicator-height', `${button.offsetHeight}px`)
+  })
+}
+
+function updateAllFilterIndicators() {
+  ;['category', 'difficulty', 'light', 'water'].forEach(updateFilterIndicator)
+}
 
 function categoryName(cat: Category) {
   return getCategoryDisplayName(cat.slug, cat.name, t)
@@ -184,6 +232,8 @@ onMounted(() => {
   }
   fetchPlants()
   fetchCategories()
+  updateAllFilterIndicators()
+  window.addEventListener('resize', updateAllFilterIndicators, { passive: true })
 })
 
 // 搜索防抖 300ms：避免每次按键立即请求（竞态保护在 fetchPlants 内部按 fetchSeq 丢弃慢响应）
@@ -192,10 +242,20 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch([searchQuery, activeDifficulty, activeLight, activeWater, activeCategory, indoorOnly, petSafeOnly], () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(fetchPlants, 300)
+  updateAllFilterIndicators()
+})
+
+watch([categories, locale], updateAllFilterIndicators)
+
+onBeforeUpdate(() => {
+  Object.values(filterGroups.value).forEach((group) => {
+    group.buttons = []
+  })
 })
 
 onUnmounted(() => {
   if (searchTimer) clearTimeout(searchTimer)
+  window.removeEventListener('resize', updateAllFilterIndicators)
 })
 </script>
 
@@ -223,9 +283,14 @@ onUnmounted(() => {
       <aside class="encyclopedia__filters">
         <div class="encyclopedia__filter-group" v-if="categories.length">
           <h3 class="encyclopedia__filter-title">{{ $t('encyclopedia.categoryFilter') }}</h3>
-          <div class="encyclopedia__filter-options">
+          <div
+            class="encyclopedia__filter-options encyclopedia__filter-options--sliding"
+            :ref="(el) => setFilterGroupRef('category', el)"
+          >
+            <span class="encyclopedia__filter-indicator" aria-hidden="true"></span>
             <button
               class="encyclopedia__filter-btn"
+              :ref="(el) => setFilterButtonRef('category', el)"
               :class="{ 'encyclopedia__filter-btn--active': activeCategory === '' }"
               @click="activeCategory = ''"
             >
@@ -235,6 +300,7 @@ onUnmounted(() => {
               v-for="cat in categories"
               :key="cat.slug"
               class="encyclopedia__filter-btn"
+              :ref="(el) => setFilterButtonRef('category', el)"
               :class="{ 'encyclopedia__filter-btn--active': activeCategory === cat.slug }"
               @click="activeCategory = cat.slug"
             >
@@ -245,11 +311,16 @@ onUnmounted(() => {
 
         <div class="encyclopedia__filter-group">
           <h3 class="encyclopedia__filter-title">{{ $t('encyclopedia.difficulty') }}</h3>
-          <div class="encyclopedia__filter-options">
+          <div
+            class="encyclopedia__filter-options encyclopedia__filter-options--sliding"
+            :ref="(el) => setFilterGroupRef('difficulty', el)"
+          >
+            <span class="encyclopedia__filter-indicator" aria-hidden="true"></span>
             <button
-              v-for="d in ['', 'easy', 'medium', 'hard']"
+              v-for="d in difficultyFilterOptions"
               :key="d"
               class="encyclopedia__filter-btn"
+              :ref="(el) => setFilterButtonRef('difficulty', el)"
               :class="{ 'encyclopedia__filter-btn--active': activeDifficulty === d }"
               @click="activeDifficulty = d"
             >
@@ -260,11 +331,16 @@ onUnmounted(() => {
 
         <div class="encyclopedia__filter-group">
           <h3 class="encyclopedia__filter-title">{{ $t('encyclopedia.lightLevel') }}</h3>
-          <div class="encyclopedia__filter-options">
+          <div
+            class="encyclopedia__filter-options encyclopedia__filter-options--sliding"
+            :ref="(el) => setFilterGroupRef('light', el)"
+          >
+            <span class="encyclopedia__filter-indicator" aria-hidden="true"></span>
             <button
-              v-for="l in ['', 'low', 'medium', 'high', 'bright_direct']"
+              v-for="l in lightFilterOptions"
               :key="l"
               class="encyclopedia__filter-btn"
+              :ref="(el) => setFilterButtonRef('light', el)"
               :class="{ 'encyclopedia__filter-btn--active': activeLight === l }"
               @click="activeLight = l"
             >
@@ -275,11 +351,16 @@ onUnmounted(() => {
 
         <div class="encyclopedia__filter-group">
           <h3 class="encyclopedia__filter-title">{{ $t('detail.water') }}</h3>
-          <div class="encyclopedia__filter-options">
+          <div
+            class="encyclopedia__filter-options encyclopedia__filter-options--sliding"
+            :ref="(el) => setFilterGroupRef('water', el)"
+          >
+            <span class="encyclopedia__filter-indicator" aria-hidden="true"></span>
             <button
-              v-for="w in ['', 'rarely', 'weekly', 'biweekly', 'frequent']"
+              v-for="w in waterFilterOptions"
               :key="w"
               class="encyclopedia__filter-btn"
+              :ref="(el) => setFilterButtonRef('water', el)"
               :class="{ 'encyclopedia__filter-btn--active': activeWater === w }"
               @click="activeWater = w"
             >
@@ -441,10 +522,40 @@ onUnmounted(() => {
     display: flex;
     flex-wrap: wrap;
     gap: 0.55rem;
+
+    &--sliding {
+      position: relative;
+      isolation: isolate;
+      --filter-indicator-x: 0px;
+      --filter-indicator-y: 0px;
+      --filter-indicator-width: 0px;
+      --filter-indicator-height: 0px;
+    }
+  }
+
+  &__filter-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: var(--filter-indicator-width);
+    height: var(--filter-indicator-height);
+    border-radius: 999px;
+    background: linear-gradient(135deg, $color-leaf-700, $color-leaf-500 58%, #22c55e);
+    box-shadow:
+      0 10px 22px rgba(22, 163, 74, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    transform: translate3d(var(--filter-indicator-x), var(--filter-indicator-y), 0);
+    transition:
+      transform 0.38s cubic-bezier(0.2, 0.85, 0.2, 1),
+      width 0.38s cubic-bezier(0.2, 0.85, 0.2, 1),
+      height 0.38s cubic-bezier(0.2, 0.85, 0.2, 1);
+    pointer-events: none;
   }
 
   &__filter-btn {
     position: relative;
+    z-index: 1;
     overflow: hidden;
     padding: 0.48rem 0.95rem;
     border: 1px solid rgba(22, 163, 74, 0.16);
@@ -474,7 +585,7 @@ onUnmounted(() => {
       pointer-events: none;
     }
 
-    &:hover {
+    &:hover:not(.encyclopedia__filter-btn--active) {
       color: $color-leaf-600;
       border-color: rgba(34, 197, 94, 0.34);
       transform: translateY(-2px);
@@ -492,16 +603,19 @@ onUnmounted(() => {
     }
 
     &--active {
-      background: linear-gradient(135deg, $color-leaf-700, $color-leaf-500 58%, #22c55e);
-      border-color: $color-leaf-600;
+      background: transparent;
+      border-color: transparent;
       color: white;
-      box-shadow:
-        0 10px 22px rgba(22, 163, 74, 0.26),
-        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      box-shadow: none;
+
+      &::before {
+        opacity: 0;
+      }
 
       &:hover {
         color: white;
-        transform: translateY(-2px) scale(1.02);
+        background: transparent;
+        transform: translateY(-1px);
       }
     }
   }

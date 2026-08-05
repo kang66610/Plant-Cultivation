@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, nextTick, onBeforeUpdate, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getPlant } from '@/api/plantApi'
@@ -111,6 +111,8 @@ const plant = ref<Plant | null>(null)
 const loading = ref(true)
 const error = ref(false)
 const activeTab = ref('overview')
+const tabsRef = ref<HTMLElement | null>(null)
+const tabButtonRefs = ref<HTMLButtonElement[]>([])
 
 const difficultyColors: Record<string, string> = {
   easy: '#22c55e',
@@ -151,6 +153,36 @@ const allTabs = computed(() => [
   'overview', 'morphology', 'environment', 'care',
   'seasonal', 'pest', 'safety', 'problems', 'value', 'guides'
 ])
+
+function setTabButtonRef(el: unknown) {
+  if (el instanceof HTMLButtonElement) {
+    tabButtonRefs.value.push(el)
+  }
+}
+
+function updateTabIndicator(shouldScroll = false) {
+  nextTick(() => {
+    const tabs = tabsRef.value
+    const activeIndex = allTabs.value.indexOf(activeTab.value)
+    const button = tabButtonRefs.value[activeIndex]
+    if (!tabs || !button) return
+
+    tabs.style.setProperty('--tab-indicator-x', `${button.offsetLeft}px`)
+    tabs.style.setProperty('--tab-indicator-width', `${button.offsetWidth}px`)
+
+    if (shouldScroll) {
+      button.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      })
+    }
+  })
+}
+
+function setActiveTab(tab: string) {
+  activeTab.value = tab
+}
 
 function parseJson(val: string | null | undefined): any {
   if (!val) return null
@@ -276,13 +308,31 @@ async function fetchPlant() {
     error.value = true
   } finally {
     loading.value = false
+    updateTabIndicator()
   }
 }
 
-onMounted(fetchPlant)
+function handleResize() {
+  updateTabIndicator()
+}
+
+onBeforeUpdate(() => {
+  tabButtonRefs.value = []
+})
+
+onMounted(() => {
+  fetchPlant()
+  window.addEventListener('resize', handleResize, { passive: true })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
 
 // 路由参数变化（前进/后退切换植物）时重新加载
 watch(() => route.params.slug, fetchPlant)
+watch(activeTab, () => updateTabIndicator(true))
+watch(locale, () => updateTabIndicator())
 </script>
 
 <template>
@@ -315,8 +365,16 @@ watch(() => route.params.slug, fetchPlant)
       </div>
     </div>
 
-    <div class="detail__tabs">
-      <button v-for="tab in allTabs" :key="tab" class="detail__tab" :class="{ 'detail__tab--active': activeTab === tab }" @click="activeTab = tab">
+    <div ref="tabsRef" class="detail__tabs">
+      <span class="detail__tab-indicator" aria-hidden="true"></span>
+      <button
+        v-for="tab in allTabs"
+        :key="tab"
+        :ref="setTabButtonRef"
+        class="detail__tab"
+        :class="{ 'detail__tab--active': activeTab === tab }"
+        @click="setActiveTab(tab)"
+      >
         {{ $t('detail.' + tab) }}
       </button>
     </div>
@@ -675,61 +733,344 @@ watch(() => route.params.slug, fetchPlant)
 
 <style scoped lang="scss">
 .detail {
-  max-width: 1000px;
+  position: relative;
+  max-width: 1060px;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: 6rem 1.5rem 3rem;
+  padding: 6.5rem 1.5rem 4rem;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(187, 247, 208, 0.5), transparent 26rem),
+    radial-gradient(circle at 92% 24%, rgba(220, 252, 231, 0.7), transparent 24rem),
+    linear-gradient(180deg, #f6fdf8 0%, #fbfefc 42%, #f7fcf9 100%);
+  box-shadow: 0 0 0 100vmax #f7fcf9;
+  clip-path: inset(0 -100vmax);
 
-  &__hero { display: flex; gap: 2rem; margin-bottom: 2rem; align-items: center; }
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 4.5rem -2rem auto;
+    height: 18rem;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(22, 163, 74, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(22, 163, 74, 0.045) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent);
+  }
+
+  &__hero {
+    position: relative;
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    margin-bottom: 1.6rem;
+    padding: 1.3rem;
+    overflow: hidden;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(240, 253, 244, 0.82)),
+      radial-gradient(circle at 85% 18%, rgba(74, 222, 128, 0.16), transparent 14rem);
+    border: 1px solid rgba(34, 197, 94, 0.14);
+    border-radius: 30px;
+    box-shadow:
+      0 24px 60px rgba(20, 83, 45, 0.09),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    animation: detailFadeUp 0.55s ease both;
+
+    &::after {
+      content: '';
+      position: absolute;
+      right: 2rem;
+      bottom: -2.5rem;
+      width: 9rem;
+      height: 9rem;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.08);
+      filter: blur(2px);
+    }
+  }
   &__hero-image {
-    width: 200px; height: 200px; flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    width: 220px;
+    height: 220px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
     background: linear-gradient(135deg, $color-leaf-50, $color-leaf-100);
-    border-radius: 20px; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    border: 7px solid rgba(255, 255, 255, 0.9);
+    border-radius: 28px;
+    box-shadow: 0 20px 38px rgba(20, 83, 45, 0.15);
+    transform: rotate(-1deg);
+    transition:
+      transform 0.35s $ease-out-expo,
+      box-shadow 0.35s $ease-out-expo;
     svg { width: 80px; height: 80px; color: $color-leaf-300; }
+
+    &:hover {
+      transform: rotate(0deg) translateY(-4px) scale(1.02);
+      box-shadow: 0 26px 48px rgba(20, 83, 45, 0.18);
+    }
+  }
+  &__hero-info {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
   }
   &__hero-img { width: 100%; height: 100%; object-fit: cover; }
-  &__badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: white; text-transform: capitalize; margin-bottom: 0.5rem; }
-  &__name { font-family: $font-display; font-size: clamp(1.5rem, 3vw, 2.25rem); color: $color-leaf-900; margin-bottom: 0.25rem; }
-  &__sci { font-style: italic; color: $color-text-muted; font-size: 1rem; margin-bottom: 0.5rem; }
-  &__family { font-size: 0.9rem; color: $color-text-muted; margin-bottom: 0.25rem; }
-  &__aliases { font-size: 0.85rem; color: $color-text-muted; margin-bottom: 0.75rem; }
-  &__tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-  &__tag { padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; background: $color-leaf-100; color: $color-leaf-700;
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: white;
+    text-transform: capitalize;
+    margin-bottom: 0.65rem;
+    box-shadow: 0 10px 20px rgba(34, 197, 94, 0.18);
+  }
+  &__name {
+    font-family: $font-display;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    line-height: 1.05;
+    color: $color-leaf-900;
+    margin-bottom: 0.45rem;
+    text-wrap: balance;
+  }
+  &__sci { font-style: italic; color: $color-text-muted; font-size: 1.05rem; margin-bottom: 0.65rem; }
+  &__family { font-size: 0.95rem; color: $color-text-muted; margin-bottom: 0.3rem; }
+  &__aliases { font-size: 0.9rem; color: $color-text-muted; margin-bottom: 1rem; }
+  &__tags { display: flex; gap: 0.55rem; flex-wrap: wrap; }
+  &__tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.8rem;
+    padding: 0.28rem 0.75rem;
+    border: 1px solid rgba(34, 197, 94, 0.13);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: rgba(220, 252, 231, 0.78);
+    color: $color-leaf-700;
+    box-shadow: 0 8px 20px rgba(21, 128, 61, 0.06);
+    transition:
+      transform 0.22s $ease-out-expo,
+      background-color 0.22s ease,
+      box-shadow 0.22s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      background: rgba(187, 247, 208, 0.9);
+      box-shadow: 0 12px 24px rgba(21, 128, 61, 0.1);
+    }
+
     &--green { background: #dcfce7; color: #166534; }
-    &--blue { background: #dbeafe; color: #1e40af; }
-    &--red { background: #fee2e2; color: #991b1b; }
+    &--blue { background: #dbeafe; color: #1e40af; border-color: rgba(59, 130, 246, 0.14); }
+    &--red { background: #fee2e2; color: #991b1b; border-color: rgba(239, 68, 68, 0.15); }
   }
-  &__tabs { display: flex; gap: 0; border-bottom: 2px solid $color-border; margin-bottom: 2rem; overflow-x: auto; flex-wrap: nowrap; }
-  &__tab { padding: 0.75rem 1rem; border: none; background: none; font-size: 0.9rem; font-weight: 500; color: $color-text-muted; cursor: pointer; position: relative; transition: color 0.3s ease; white-space: nowrap; flex-shrink: 0;
-    &--active { color: $color-leaf-600; &::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: $color-leaf-500; } }
-    &:hover { color: $color-leaf-600; }
+  &__tabs {
+    position: sticky;
+    top: 4.75rem;
+    z-index: 5;
+    display: flex;
+    gap: 0.45rem;
+    margin-bottom: 2rem;
+    padding: 0.65rem;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 22px;
+    box-shadow: 0 16px 36px rgba(20, 83, 45, 0.07);
+    backdrop-filter: blur(14px);
+    scrollbar-width: thin;
+    animation: detailFadeUp 0.55s 0.08s ease both;
+    isolation: isolate;
+    --tab-indicator-x: 0px;
+    --tab-indicator-width: 0px;
   }
-  &__desc { font-size: 1.05rem; line-height: 1.7; color: $color-text; margin-bottom: 2rem; }
-  &__specs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
-  &__spec { padding: 1rem; background: $color-leaf-50; border-radius: 12px; }
-  &__spec-label { display: block; font-size: 0.8rem; color: $color-text-muted; margin-bottom: 0.25rem; }
-  &__spec-value { font-weight: 600; color: $color-leaf-800; }
+  &__tab-indicator {
+    position: absolute;
+    top: 0.65rem;
+    left: 0;
+    z-index: 0;
+    width: var(--tab-indicator-width);
+    height: calc(100% - 1.3rem);
+    border-radius: 999px;
+    background: linear-gradient(135deg, $color-leaf-700, $color-leaf-500 58%, #22c55e);
+    box-shadow:
+      0 12px 26px rgba(22, 163, 74, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.24);
+    transform: translate3d(var(--tab-indicator-x), 0, 0);
+    transition:
+      transform 0.42s cubic-bezier(0.2, 0.85, 0.2, 1),
+      width 0.42s cubic-bezier(0.2, 0.85, 0.2, 1);
+    pointer-events: none;
+  }
+  &__tab {
+    z-index: 1;
+    min-height: 2.45rem;
+    padding: 0.62rem 1rem;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: $color-text-muted;
+    cursor: pointer;
+    position: relative;
+    transition:
+      color 0.25s ease,
+      background-color 0.25s ease,
+      box-shadow 0.25s ease,
+      transform 0.25s $ease-out-expo;
+    white-space: nowrap;
+    flex-shrink: 0;
+
+    &--active {
+      color: white;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    &:hover:not(.detail__tab--active) {
+      color: $color-leaf-700;
+      background: rgba(220, 252, 231, 0.72);
+      transform: translateY(-1px);
+    }
+
+    &--active:hover {
+      color: white;
+      background: transparent;
+    }
+
+    &:active { transform: translateY(0) scale(0.98); }
+  }
+  &__content {
+    animation: detailFadeUp 0.55s 0.15s ease both;
+  }
+  &__desc {
+    max-width: 65ch;
+    font-size: 1.08rem;
+    line-height: 1.8;
+    color: $color-text;
+    margin-bottom: 2rem;
+  }
+  &__specs { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 1rem; }
+  &__spec {
+    padding: 1.15rem;
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 18px;
+    box-shadow: 0 14px 30px rgba(20, 83, 45, 0.06);
+    transition:
+      transform 0.28s $ease-out-expo,
+      box-shadow 0.28s ease,
+      background-color 0.28s ease;
+
+    &:hover {
+      transform: translateY(-4px);
+      background: white;
+      box-shadow: 0 20px 40px rgba(20, 83, 45, 0.1);
+    }
+  }
+  &__spec-label { display: block; font-size: 0.8rem; color: $color-text-muted; margin-bottom: 0.3rem; }
+  &__spec-value { font-weight: 700; color: $color-leaf-800; }
 
   &__section { }
   &__info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
-  &__info-item { padding: 1rem; background: $color-leaf-50; border-radius: 12px; }
+  &__info-item {
+    padding: 1.15rem;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 18px;
+    box-shadow: 0 14px 30px rgba(20, 83, 45, 0.06);
+    transition:
+      transform 0.28s $ease-out-expo,
+      box-shadow 0.28s ease;
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 42px rgba(20, 83, 45, 0.1);
+    }
+  }
   &__info-label { display: block; font-size: 0.8rem; color: $color-text-muted; margin-bottom: 0.25rem; }
   &__info-value { font-size: 0.95rem; color: $color-leaf-800; line-height: 1.5; }
   &__toxic { color: #dc2626; font-weight: 600; }
 
-  &__text-block { margin-top: 1.5rem; padding: 1.25rem; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  &__text-block {
+    margin-top: 1.5rem;
+    padding: 1.35rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 20px;
+    box-shadow: 0 16px 36px rgba(20, 83, 45, 0.07);
     h3 { font-family: $font-display; font-size: 1rem; color: $color-leaf-900; margin-bottom: 0.5rem; }
     p { font-size: 0.95rem; line-height: 1.6; color: $color-text; }
   }
 
   &__care-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem; }
-  &__care-card { padding: 1.5rem; background: white; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); h3 { font-family: $font-display; font-size: 1rem; color: $color-leaf-900; margin-bottom: 0.75rem; } }
-  &__care-icon { font-size: 2rem; margin-bottom: 0.75rem; }
-  &__care-meter { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
-  &__care-fill { height: 100%; border-radius: 4px; transition: width 1s $ease-out-expo; &--sun { background: linear-gradient(90deg, #fde047, #f59e0b); } &--water { background: linear-gradient(90deg, #93c5fd, #3b82f6); } &--temp { background: linear-gradient(90deg, #fca5a5, #ef4444); } &--humidity { background: linear-gradient(90deg, #a5f3fc, #06b6d4); } }
+  &__care-card {
+    position: relative;
+    overflow: hidden;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 22px;
+    box-shadow: 0 18px 42px rgba(20, 83, 45, 0.08);
+    transition:
+      transform 0.3s $ease-out-expo,
+      box-shadow 0.3s ease;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 4.5rem;
+      height: 4.5rem;
+      background: radial-gradient(circle, rgba(34, 197, 94, 0.14), transparent 68%);
+      transform: translate(-30%, -30%);
+    }
+
+    &:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 24px 54px rgba(20, 83, 45, 0.12);
+    }
+
+    h3 { font-family: $font-display; font-size: 1.05rem; color: $color-leaf-900; margin-bottom: 0.75rem; }
+  }
+  &__care-icon {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    margin-bottom: 0.75rem;
+    font-size: 2rem;
+    animation: leafFloat 3.2s ease-in-out infinite;
+  }
+  &__care-meter { height: 9px; background: rgba(15, 23, 42, 0.08); border-radius: 999px; overflow: hidden; margin-bottom: 0.55rem; }
+  &__care-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 1s $ease-out-expo;
+    background-size: 180% 100%;
+    animation: shimmer 3s linear infinite;
+    &--sun { background: linear-gradient(90deg, #fde047, #f59e0b, #fde047); }
+    &--water { background: linear-gradient(90deg, #93c5fd, #3b82f6, #93c5fd); }
+    &--temp { background: linear-gradient(90deg, #fca5a5, #ef4444, #fca5a5); }
+    &--humidity { background: linear-gradient(90deg, #a5f3fc, #06b6d4, #a5f3fc); }
+  }
   &__care-label { font-weight: 600; font-size: 0.9rem; color: $color-text; margin-bottom: 0.25rem; }
   &__care-desc { font-size: 0.85rem; color: $color-text-muted; line-height: 1.5; }
 
-  &__season-water { margin-top: 1.5rem; padding: 1.25rem; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  &__season-water {
+    margin-top: 1.5rem;
+    padding: 1.35rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 20px;
+    box-shadow: 0 16px 36px rgba(20, 83, 45, 0.07);
     h3 { font-family: $font-display; font-size: 1rem; color: $color-leaf-900; margin-bottom: 1rem; }
   }
   &__season-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
@@ -738,20 +1079,65 @@ watch(() => route.params.slug, fetchPlant)
 
   &__sub-title { font-family: $font-display; font-size: 1.1rem; color: $color-leaf-900; margin: 1.5rem 0 1rem; }
   &__pest-list { display: grid; gap: 1rem; }
-  &__pest-item { padding: 1.25rem; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  &__pest-item {
+    padding: 1.35rem;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(34, 197, 94, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 16px 36px rgba(20, 83, 45, 0.07);
+    transition:
+      transform 0.28s $ease-out-expo,
+      box-shadow 0.28s ease,
+      border-color 0.28s ease;
+
+    &:hover {
+      transform: translateY(-4px);
+      border-color: rgba(34, 197, 94, 0.22);
+      box-shadow: 0 24px 50px rgba(20, 83, 45, 0.11);
+    }
+
     h4 { font-family: $font-display; font-size: 1rem; color: $color-leaf-900; margin-bottom: 0.5rem; }
     p { font-size: 0.9rem; color: $color-text; line-height: 1.5; margin-bottom: 0.25rem; }
   }
 
   &__seasonal-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
-  &__seasonal-card { padding: 1.5rem; background: white; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center;
+  &__seasonal-card {
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 22px;
+    box-shadow: 0 16px 36px rgba(20, 83, 45, 0.07);
+    text-align: center;
+    transition:
+      transform 0.28s $ease-out-expo,
+      box-shadow 0.28s ease;
+
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 22px 48px rgba(20, 83, 45, 0.11);
+    }
+
     h4 { font-family: $font-display; font-size: 1rem; color: $color-leaf-900; margin: 0.5rem 0; }
     p { font-size: 0.9rem; color: $color-text; line-height: 1.5; text-align: left; }
   }
   &__seasonal-icon { font-size: 2rem; }
 
   &__problems-list { display: grid; gap: 0.75rem; }
-  &__problem-item { padding: 1rem; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  &__problem-item {
+    padding: 1.15rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(34, 197, 94, 0.1);
+    border-radius: 18px;
+    box-shadow: 0 14px 30px rgba(20, 83, 45, 0.06);
+    transition:
+      transform 0.28s $ease-out-expo,
+      box-shadow 0.28s ease;
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 42px rgba(20, 83, 45, 0.1);
+    }
+
     h4 { font-size: 0.9rem; font-weight: 600; color: $color-leaf-800; margin-bottom: 0.25rem; }
     p { font-size: 0.9rem; color: $color-text; line-height: 1.5; }
   }
@@ -766,11 +1152,19 @@ watch(() => route.params.slug, fetchPlant)
   &__guides { }
   &__guide {
     padding: 1.5rem;
-    background: white;
+    background: rgba(255, 255, 255, 0.92);
     border: 1px solid rgba(34, 197, 94, 0.1);
-    border-radius: 16px;
-    box-shadow: 0 12px 32px rgba(15, 118, 62, 0.07);
+    border-radius: 22px;
+    box-shadow: 0 18px 42px rgba(15, 118, 62, 0.08);
     margin-bottom: 1.5rem;
+    transition:
+      transform 0.28s $ease-out-expo,
+      box-shadow 0.28s ease;
+
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 24px 52px rgba(15, 118, 62, 0.12);
+    }
   }
   &__guide-type {
     display: inline-flex;
@@ -791,17 +1185,83 @@ watch(() => route.params.slug, fetchPlant)
   &__loading-spinner { width: 40px; height: 40px; border: 3px solid $color-leaf-200; border-top-color: $color-leaf-600; border-radius: 50%; animation: spin 0.8s linear infinite; }
 }
 
+@keyframes detailFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes leafFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(2deg); }
+}
+
+@keyframes shimmer {
+  from { background-position: 0 0; }
+  to { background-position: 180% 0; }
+}
+
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .detail {
+    &__hero,
+    &__content,
+    &__tabs,
+    &__care-icon,
+    &__care-fill {
+      animation: none;
+    }
+
+    &__hero-image,
+    &__tag,
+    &__tab,
+    &__spec,
+    &__info-item,
+    &__care-card,
+    &__pest-item,
+    &__seasonal-card,
+    &__problem-item,
+    &__guide {
+      transition: none;
+    }
+  }
+}
 
 @media (max-width: 768px) {
   .detail {
-    &__hero { flex-direction: column; text-align: center; }
-    &__hero-image { width: 150px; height: 150px; }
+    padding: 5.5rem 1rem 3rem;
+
+    &__hero {
+      flex-direction: column;
+      text-align: center;
+      gap: 1.25rem;
+      padding: 1rem;
+      border-radius: 24px;
+    }
+    &__hero-image { width: 150px; height: 150px; border-radius: 22px; }
+    &__name { font-size: clamp(1.75rem, 9vw, 2.45rem); }
     &__tags { justify-content: center; }
-    &__tabs { padding-bottom: 0.5rem; }
+    &__tabs {
+      top: 4.25rem;
+      margin-inline: -0.25rem;
+      padding: 0.5rem;
+      border-radius: 18px;
+    }
+    &__tab {
+      min-height: 2.25rem;
+      padding: 0.55rem 0.85rem;
+      font-size: 0.84rem;
+    }
     &__season-grid { grid-template-columns: 1fr; }
     &__seasonal-cards { grid-template-columns: 1fr; }
     &__info-grid { grid-template-columns: 1fr; }
+    &__care-grid { grid-template-columns: 1fr; gap: 1rem; }
   }
 }
 </style>

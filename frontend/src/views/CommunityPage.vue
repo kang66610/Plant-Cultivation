@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, nextTick, onBeforeUpdate, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -37,12 +37,34 @@ const newComment = ref('')
 const categoryFilter = ref('')
 const searchKeyword = ref('')
 const searchInput = ref('')
+const categoryBarRef = ref<HTMLElement | null>(null)
+const categoryButtonRefs = ref<HTMLButtonElement[]>([])
 
 const categories = plantCategoryOptions
 
 const plants = ref<Pick<Plant, 'slug' | 'commonName'>[]>([])
 
 const totalPages = computed(() => Math.ceil(total.value / size))
+const categoryOptionSlugs = computed(() => ['', ...categories.map((cat) => cat.slug)])
+
+function setCategoryButtonRef(el: unknown) {
+  if (el instanceof HTMLButtonElement) {
+    categoryButtonRefs.value.push(el)
+  }
+}
+
+function updateCategoryIndicator() {
+  nextTick(() => {
+    const activeIndex = Math.max(0, categoryOptionSlugs.value.indexOf(categoryFilter.value))
+    const button = categoryButtonRefs.value[activeIndex]
+    if (!categoryBarRef.value || !button) return
+
+    categoryBarRef.value.style.setProperty('--cat-indicator-x', `${button.offsetLeft}px`)
+    categoryBarRef.value.style.setProperty('--cat-indicator-y', `${button.offsetTop}px`)
+    categoryBarRef.value.style.setProperty('--cat-indicator-width', `${button.offsetWidth}px`)
+    categoryBarRef.value.style.setProperty('--cat-indicator-height', `${button.offsetHeight}px`)
+  })
+}
 
 // Lightbox (image only)
 const lightboxVisible = ref(false)
@@ -288,6 +310,18 @@ function goToPlant(slug: string) {
 onMounted(() => {
   fetchPosts()
   fetchPlants()
+  updateCategoryIndicator()
+  window.addEventListener('resize', updateCategoryIndicator, { passive: true })
+})
+
+onBeforeUpdate(() => {
+  categoryButtonRefs.value = []
+})
+
+watch([categoryFilter, locale], updateCategoryIndicator)
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateCategoryIndicator)
 })
 </script>
 
@@ -312,9 +346,11 @@ onMounted(() => {
     </div>
 
     <!-- Category Filters -->
-    <div class="community__categories">
+    <div ref="categoryBarRef" class="community__categories">
+      <span class="community__cat-indicator" aria-hidden="true"></span>
       <button
         class="community__cat-btn"
+        :ref="setCategoryButtonRef"
         :class="{ 'community__cat-btn--active': !categoryFilter }"
         @click="selectCategory('')"
       >
@@ -324,6 +360,7 @@ onMounted(() => {
         v-for="cat in categories"
         :key="cat.slug"
         class="community__cat-btn"
+        :ref="setCategoryButtonRef"
         :class="{ 'community__cat-btn--active': categoryFilter === cat.slug }"
         @click="selectCategory(cat.slug)"
       >
@@ -601,14 +638,41 @@ onMounted(() => {
   }
 
   &__categories {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
+    isolation: isolate;
+    --cat-indicator-x: 0px;
+    --cat-indicator-y: 0px;
+    --cat-indicator-width: 0px;
+    --cat-indicator-height: 0px;
+  }
+
+  &__cat-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: var(--cat-indicator-width);
+    height: var(--cat-indicator-height);
+    border-radius: 999px;
+    background: linear-gradient(135deg, $color-leaf-700, $color-leaf-500 58%, #22c55e);
+    box-shadow:
+      0 12px 24px rgba(22, 163, 74, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    transform: translate3d(var(--cat-indicator-x), var(--cat-indicator-y), 0);
+    transition:
+      transform 0.38s cubic-bezier(0.2, 0.85, 0.2, 1),
+      width 0.38s cubic-bezier(0.2, 0.85, 0.2, 1),
+      height 0.38s cubic-bezier(0.2, 0.85, 0.2, 1);
+    pointer-events: none;
   }
 
   &__cat-btn {
     position: relative;
+    z-index: 1;
     overflow: hidden;
     padding: 0.52rem 1rem;
     background: linear-gradient(180deg, #ffffff, rgba(240, 253, 244, 0.76));
@@ -639,7 +703,7 @@ onMounted(() => {
       pointer-events: none;
     }
 
-    &:hover {
+    &:hover:not(.community__cat-btn--active) {
       color: $color-leaf-700;
       border-color: rgba(34, 197, 94, 0.36);
       transform: translateY(-2px);
@@ -657,17 +721,19 @@ onMounted(() => {
     }
 
     &--active {
-      background: linear-gradient(135deg, $color-leaf-700, $color-leaf-500 58%, #22c55e);
+      background: transparent;
       color: white;
       border-color: transparent;
-      box-shadow:
-        0 12px 24px rgba(22, 163, 74, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      box-shadow: none;
+
+      &::before {
+        opacity: 0;
+      }
 
       &:hover {
         color: white;
-        background: linear-gradient(135deg, $color-leaf-800, $color-leaf-600 58%, $color-leaf-500);
-        transform: translateY(-2px) scale(1.02);
+        background: transparent;
+        transform: translateY(-1px);
       }
     }
   }
