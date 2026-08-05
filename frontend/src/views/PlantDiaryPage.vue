@@ -7,7 +7,7 @@ import * as diaryApi from '@/api/diaryApi'
 import { uploadImage as uploadImageApi } from '@/api/uploadApi'
 import type { Diary } from '@/types'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const auth = useAuthStore()
 
 const diaries = ref<Diary[]>([])
@@ -31,9 +31,69 @@ const newDiary = ref({
   images: [] as string[],
 })
 
-const weatherOptions = ['☀️ 晴', '⛅ 多云', '🌧️ 雨', '❄️ 雪', '🌫️ 雾']
-const moodOptions = ['😊 开心', '🥰 幸福', '😌 平静', '🤔 思考', '😤 担心', '🤩 惊喜']
-const growthStages = ['🌱 幼苗期', '🌿 生长期', '🌸 开花期', '🍂 休眠期', '🌲 成熟期']
+type DiaryOption = {
+  id: string
+  emoji: string
+  zh: string
+  en: string
+  color?: string
+}
+
+const weatherOptions: DiaryOption[] = [
+  { id: 'sunny', emoji: '☀️', zh: '晴', en: 'Sunny' },
+  { id: 'cloudy', emoji: '⛅', zh: '多云', en: 'Cloudy' },
+  { id: 'rainy', emoji: '🌧️', zh: '雨', en: 'Rainy' },
+  { id: 'snowy', emoji: '❄️', zh: '雪', en: 'Snowy' },
+  { id: 'foggy', emoji: '🌫️', zh: '雾', en: 'Foggy' },
+]
+const moodOptions: DiaryOption[] = [
+  { id: 'happy', emoji: '😊', zh: '开心', en: 'Happy' },
+  { id: 'blessed', emoji: '🥰', zh: '幸福', en: 'Content' },
+  { id: 'calm', emoji: '😌', zh: '平静', en: 'Calm' },
+  { id: 'thinking', emoji: '🤔', zh: '思考', en: 'Thinking' },
+  { id: 'worried', emoji: '😤', zh: '担心', en: 'Concerned' },
+  { id: 'surprised', emoji: '🤩', zh: '惊喜', en: 'Delighted' },
+]
+const growthStages: DiaryOption[] = [
+  { id: 'seedling', emoji: '🌱', zh: '幼苗期', en: 'Seedling', color: '#22c55e' },
+  { id: 'growing', emoji: '🌿', zh: '生长期', en: 'Growing', color: '#16a34a' },
+  { id: 'flowering', emoji: '🌸', zh: '开花期', en: 'Flowering', color: '#f59e0b' },
+  { id: 'dormant', emoji: '🍂', zh: '休眠期', en: 'Dormant', color: '#94a3b8' },
+  { id: 'mature', emoji: '🌲', zh: '成熟期', en: 'Mature', color: '#15803d' },
+]
+
+const pageLanguageClass = computed(() => locale.value === 'zh-CN' ? 'diary-page--zh' : 'diary-page--en')
+
+function uiText(zh: string, en: string) {
+  return locale.value === 'zh-CN' ? zh : en
+}
+
+function optionValue(option: DiaryOption) {
+  return `${option.emoji} ${option.zh}`
+}
+
+function optionLabel(option: DiaryOption) {
+  return `${option.emoji} ${locale.value === 'zh-CN' ? option.zh : option.en}`
+}
+
+function optionMatches(value: string | null | undefined, option: DiaryOption) {
+  if (!value) return false
+  return value === optionValue(option)
+    || value === `${option.emoji} ${option.en}`
+    || value === option.zh
+    || value === option.en
+    || value.includes(option.zh)
+    || value.includes(option.en)
+}
+
+function toggleOption(field: 'weather' | 'mood' | 'growthStage', option: DiaryOption) {
+  newDiary.value[field] = optionMatches(newDiary.value[field], option) ? '' : optionValue(option)
+}
+
+function displayOption(value: string | null | undefined, options: DiaryOption[]) {
+  const option = options.find((item) => optionMatches(value, item))
+  return option ? optionLabel(option) : value || ''
+}
 
 // Lightbox
 const lightboxImages = ref<string[]>([])
@@ -215,7 +275,9 @@ function formatTime(dateStr: string) {
 }
 
 function formatWeekday(dateStr: string) {
-  const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  const days = locale.value === 'zh-CN'
+    ? ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   return days[new Date(dateStr).getDay()]
 }
 
@@ -225,11 +287,8 @@ function parseImages(images?: string): string[] {
 }
 
 function getGrowthColor(stage: string) {
-  if (stage.includes('幼苗')) return '#22c55e'
-  if (stage.includes('生长')) return '#16a34a'
-  if (stage.includes('开花')) return '#f59e0b'
-  if (stage.includes('休眠')) return '#94a3b8'
-  if (stage.includes('成熟')) return '#15803d'
+  const option = growthStages.find((item) => optionMatches(stage, item))
+  if (option?.color) return option.color
   return '#6b7280'
 }
 
@@ -243,7 +302,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
 </script>
 
 <template>
-  <div class="diary-page">
+  <div class="diary-page" :class="pageLanguageClass">
     <!-- Hero -->
     <div class="diary__hero">
       <svg class="diary__hero-icon" viewBox="0 0 64 64" fill="none">
@@ -337,33 +396,53 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
                 <div class="diary__card-body">
                   <div class="diary__card-top">
                     <h3 class="diary__card-title">{{ entry.title }}</h3>
-                    <button
-                      v-if="entry.userAccount === auth.user?.account"
-                      class="diary__card-delete"
-                      @click="editDiary(entry)"
-                      title="编辑"
-                    >Edit</button>
-                    <button
-                      class="diary__card-delete"
-                      @click="openDiaryDetail(entry)"
-                      title="详情"
-                    >View</button>
-                    <button
-                      v-if="entry.userAccount === auth.user?.account"
-                      class="diary__card-delete"
-                      @click="deleteDiary(entry.id)"
-                      :title="t('diary.delete')"
-                    >×</button>
+                    <div class="diary__card-actions">
+                      <button
+                        v-if="entry.userAccount === auth.user?.account"
+                        class="diary__icon-btn diary__icon-btn--edit"
+                        @click="editDiary(entry)"
+                        :title="uiText('编辑', 'Edit')"
+                        :aria-label="uiText('编辑日记', 'Edit entry')"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                      </button>
+                      <button
+                        class="diary__icon-btn diary__icon-btn--view"
+                        @click="openDiaryDetail(entry)"
+                        :title="uiText('查看', 'View')"
+                        :aria-label="uiText('查看日记', 'View entry')"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+                          <circle cx="12" cy="12" r="2.8" />
+                        </svg>
+                      </button>
+                      <button
+                        v-if="entry.userAccount === auth.user?.account"
+                        class="diary__icon-btn diary__icon-btn--delete"
+                        @click="deleteDiary(entry.id)"
+                        :title="t('diary.delete')"
+                        :aria-label="t('diary.delete')"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M18 6 6 18" />
+                          <path d="m6 6 12 12" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
                   <!-- Plant & Stage tags -->
                   <div class="diary__card-tags">
                     <span v-if="entry.plantName" class="diary__tag diary__tag--plant">🌱 {{ entry.plantName }}</span>
                     <span v-if="entry.growthStage" class="diary__tag diary__tag--stage" :style="{ borderColor: getGrowthColor(entry.growthStage) }">
-                      {{ entry.growthStage }}
+                      {{ displayOption(entry.growthStage, growthStages) }}
                     </span>
-                    <span v-if="entry.weather" class="diary__tag diary__tag--weather">{{ entry.weather }}</span>
-                    <span v-if="entry.mood" class="diary__tag diary__tag--mood">{{ entry.mood }}</span>
+                    <span v-if="entry.weather" class="diary__tag diary__tag--weather">{{ displayOption(entry.weather, weatherOptions) }}</span>
+                    <span v-if="entry.mood" class="diary__tag diary__tag--mood">{{ displayOption(entry.mood, moodOptions) }}</span>
                   </div>
 
                   <!-- Growth data -->
@@ -405,7 +484,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
 
     <!-- Image Lightbox -->
     <Teleport to="body">
-      <div v-if="showLightbox" class="diary__lightbox" @click.self="closeLightbox">
+      <div v-if="showLightbox" class="diary__lightbox" :class="pageLanguageClass" @click.self="closeLightbox">
         <button class="diary__lightbox-close" @click="closeLightbox">×</button>
         <button class="diary__lightbox-prev" @click="prevImage">‹</button>
         <img :src="lightboxImages[lightboxIndex]" class="diary__lightbox-img" />
@@ -416,18 +495,20 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
 
     <!-- Create modal -->
     <Teleport to="body">
-      <div v-if="selectedDiary" class="diary__modal-overlay" @click.self="selectedDiary = null">
+      <div v-if="selectedDiary" class="diary__modal-overlay" :class="pageLanguageClass" @click.self="selectedDiary = null">
         <div class="diary__modal">
           <div class="diary__modal-header">
             <h2>{{ selectedDiary.title }}</h2>
-            <button class="diary__modal-close" @click="selectedDiary = null">脳</button>
+            <button class="diary__modal-close" @click="selectedDiary = null" :aria-label="uiText('关闭', 'Close')">×</button>
           </div>
           <div class="diary__modal-body">
             <div class="diary__card-tags">
-              <span v-if="selectedDiary.plantName" class="diary__tag diary__tag--plant">馃尡 {{ selectedDiary.plantName }}</span>
-              <span v-if="selectedDiary.growthStage" class="diary__tag diary__tag--stage">{{ selectedDiary.growthStage }}</span>
-              <span v-if="selectedDiary.weather" class="diary__tag diary__tag--weather">{{ selectedDiary.weather }}</span>
-              <span v-if="selectedDiary.mood" class="diary__tag diary__tag--mood">{{ selectedDiary.mood }}</span>
+              <span v-if="selectedDiary.plantName" class="diary__tag diary__tag--plant">🌱 {{ selectedDiary.plantName }}</span>
+              <span v-if="selectedDiary.growthStage" class="diary__tag diary__tag--stage" :style="{ borderColor: getGrowthColor(selectedDiary.growthStage) }">
+                {{ displayOption(selectedDiary.growthStage, growthStages) }}
+              </span>
+              <span v-if="selectedDiary.weather" class="diary__tag diary__tag--weather">{{ displayOption(selectedDiary.weather, weatherOptions) }}</span>
+              <span v-if="selectedDiary.mood" class="diary__tag diary__tag--mood">{{ displayOption(selectedDiary.mood, moodOptions) }}</span>
             </div>
             <p class="diary__card-content">{{ selectedDiary.content }}</p>
             <div v-if="parseImages(selectedDiary.images || '').length" class="diary__card-images">
@@ -446,11 +527,11 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="showModal" class="diary__modal-overlay" @click.self="showModal = false">
+      <div v-if="showModal" class="diary__modal-overlay" :class="pageLanguageClass" @click.self="showModal = false">
         <div class="diary__modal">
           <div class="diary__modal-header">
-            <h2>{{ editingId ? '编辑日记' : t('diary.newEntry') }}</h2>
-            <button class="diary__modal-close" @click="showModal = false">×</button>
+            <h2>{{ editingId ? uiText('编辑日记', 'Edit entry') : t('diary.newEntry') }}</h2>
+            <button class="diary__modal-close" @click="showModal = false" :aria-label="uiText('关闭', 'Close')">×</button>
           </div>
 
           <div class="diary__modal-body">
@@ -509,10 +590,10 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
                 <div class="diary__options diary__options--wrap">
                   <button
                     v-for="s in growthStages"
-                    :key="s"
-                    :class="['diary__option', { 'diary__option--active': newDiary.growthStage === s }]"
-                    @click="newDiary.growthStage = newDiary.growthStage === s ? '' : s"
-                  >{{ s }}</button>
+                    :key="s.id"
+                    :class="['diary__option', { 'diary__option--active': optionMatches(newDiary.growthStage, s) }]"
+                    @click="toggleOption('growthStage', s)"
+                  >{{ optionLabel(s) }}</button>
                 </div>
               </div>
             </div>
@@ -523,10 +604,10 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
                 <div class="diary__options">
                   <button
                     v-for="w in weatherOptions"
-                    :key="w"
-                    :class="['diary__option', { 'diary__option--active': newDiary.weather === w }]"
-                    @click="newDiary.weather = newDiary.weather === w ? '' : w"
-                  >{{ w }}</button>
+                    :key="w.id"
+                    :class="['diary__option', { 'diary__option--active': optionMatches(newDiary.weather, w) }]"
+                    @click="toggleOption('weather', w)"
+                  >{{ optionLabel(w) }}</button>
                 </div>
               </div>
               <div class="diary__field">
@@ -534,10 +615,10 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
                 <div class="diary__options">
                   <button
                     v-for="m in moodOptions"
-                    :key="m"
-                    :class="['diary__option', { 'diary__option--active': newDiary.mood === m }]"
-                    @click="newDiary.mood = newDiary.mood === m ? '' : m"
-                  >{{ m }}</button>
+                    :key="m.id"
+                    :class="['diary__option', { 'diary__option--active': optionMatches(newDiary.mood, m) }]"
+                    @click="toggleOption('mood', m)"
+                  >{{ optionLabel(m) }}</button>
                 </div>
               </div>
             </div>
@@ -566,7 +647,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
               class="diary__submit-btn"
               :disabled="!newDiary.title.trim() || submitting"
               @click="submitDiary"
-            >{{ submitting ? '...' : editingId ? '保存' : t('diary.publish') }}</button>
+            >{{ submitting ? '...' : editingId ? uiText('保存', 'Save') : t('diary.publish') }}</button>
           </div>
         </div>
       </div>
@@ -578,7 +659,19 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
 </template>
 
 <style scoped lang="scss">
-.diary-page { min-height: 100vh; }
+.diary-page,
+.diary__modal-overlay,
+.diary__lightbox {
+  min-height: 100vh;
+  --diary-font-sans: 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --diary-font-display: 'Noto Serif SC', 'Songti SC', Georgia, serif;
+  font-family: var(--diary-font-sans);
+}
+
+.diary-page--en {
+  --diary-font-sans: 'Inter', 'Avenir Next', system-ui, -apple-system, sans-serif;
+  --diary-font-display: 'Playfair Display', Georgia, serif;
+}
 
 .diary {
   &__hero {
@@ -598,7 +691,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
     }
   }
   &__hero-icon { width: 60px; height: 60px; margin-bottom: 1.25rem; position: relative; z-index: 1; animation: float 3s ease-in-out infinite; }
-  &__title { font-family: $font-display; font-size: clamp(1.8rem, 4vw, 2.8rem); color: #f0fdf4; margin-bottom: 0.5rem; position: relative; z-index: 1; }
+  &__title { font-family: var(--diary-font-display); font-size: clamp(1.8rem, 4vw, 2.8rem); color: #f0fdf4; margin-bottom: 0.5rem; position: relative; z-index: 1; }
   &__subtitle { color: rgba(240,253,244,0.7); font-size: 1.05rem; position: relative; z-index: 1; }
 
   &__content { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
@@ -609,8 +702,12 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
   }
   &__login-btn {
     padding: 0.75rem 2rem; background: linear-gradient(135deg, $color-leaf-600, $color-leaf-500);
-    color: white; border: none; border-radius: 0.75rem; font-weight: 600; font-size: 1rem; cursor: pointer; transition: all 0.3s;
-    &:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(22,163,74,0.3); }
+    color: white; border: none; border-radius: 999px; font-weight: 700; font-size: 1rem; cursor: pointer;
+    box-shadow: 0 10px 24px rgba(22, 163, 74, 0.22);
+    transition: transform 0.24s $ease-spring, box-shadow 0.24s ease, filter 0.24s ease;
+    &:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(22,163,74,0.3); filter: saturate(1.05); }
+    &:active { transform: translateY(0) scale(0.98); }
+    &:focus-visible { outline: 3px solid rgba(34, 197, 94, 0.28); outline-offset: 3px; }
   }
 
   // Stats
@@ -620,23 +717,31 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
     box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   }
   &__stat { text-align: center; flex: 1; }
-  &__stat-num { display: block; font-family: $font-display; font-size: 1.8rem; font-weight: 700; color: $color-leaf-600; }
+  &__stat-num { display: block; font-family: var(--diary-font-display); font-size: 1.8rem; font-weight: 700; color: $color-leaf-600; font-variant-numeric: tabular-nums; }
   &__stat-label { font-size: 0.8rem; color: $color-text-muted; }
 
   // Actions
   &__actions { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
   &__filters { display: flex; gap: 0.4rem; flex-wrap: wrap; flex: 1; }
   &__filter-btn {
-    padding: 0.4rem 0.8rem; border: 1.5px solid rgba(0,0,0,0.1); border-radius: 1rem;
-    background: white; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; white-space: nowrap;
-    &:hover { border-color: $color-leaf-400; }
-    &--active { background: $color-leaf-50; border-color: $color-leaf-500; color: $color-leaf-700; font-weight: 600; }
+    padding: 0.45rem 0.95rem; border: 1px solid rgba(22, 163, 74, 0.18); border-radius: 999px;
+    background: rgba(255, 255, 255, 0.82); color: $color-leaf-800; font-size: 0.82rem; font-weight: 650;
+    cursor: pointer; transition: transform 0.22s $ease-spring, border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(20, 83, 45, 0.04);
+    &:hover { border-color: rgba(34, 197, 94, 0.55); background: $color-leaf-50; transform: translateY(-2px); }
+    &:active { transform: translateY(0) scale(0.98); }
+    &:focus-visible { outline: 3px solid rgba(34, 197, 94, 0.22); outline-offset: 2px; }
+    &--active { background: linear-gradient(135deg, $color-leaf-500, $color-leaf-600); border-color: transparent; color: white; box-shadow: 0 10px 22px rgba(22,163,74,0.2); }
   }
   &__new-btn {
     display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.65rem 1.4rem;
     background: linear-gradient(135deg, $color-leaf-600, $color-leaf-500); color: white;
-    border: none; border-radius: 0.75rem; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.3s;
-    &:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(22,163,74,0.3); }
+    border: none; border-radius: 0.85rem; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+    box-shadow: 0 12px 26px rgba(22,163,74,0.24);
+    transition: transform 0.24s $ease-spring, box-shadow 0.24s ease, filter 0.24s ease;
+    &:hover { transform: translateY(-2px); box-shadow: 0 16px 32px rgba(22,163,74,0.32); filter: saturate(1.06); }
+    &:active { transform: translateY(0) scale(0.98); }
+    &:focus-visible { outline: 3px solid rgba(34, 197, 94, 0.26); outline-offset: 3px; }
   }
 
   &__loading, &__empty { text-align: center; padding: 3rem 1rem; color: $color-text-muted; }
@@ -661,7 +766,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
     flex-shrink: 0; position: absolute; left: -24px;
   }
   &__day-info { display: flex; align-items: baseline; gap: 0.5rem; margin-left: 8px; }
-  &__day-date { font-family: $font-display; font-weight: 700; font-size: 1rem; color: $color-leaf-800; }
+  &__day-date { font-family: var(--diary-font-display); font-weight: 700; font-size: 1rem; color: $color-leaf-800; }
   &__day-weekday { font-size: 0.82rem; color: $color-text-muted; }
   &__day-count { font-size: 0.78rem; color: $color-text-muted; margin-left: auto; }
 
@@ -679,18 +784,29 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
     min-width: 40px; padding-top: 2px; flex-shrink: 0;
   }
   &__card-body { flex: 1; min-width: 0; }
-  &__card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
-  &__card-title { font-family: $font-display; font-size: 1.05rem; color: $color-leaf-800; margin-bottom: 0.5rem; }
-  &__card-delete {
-    background: none; border: none; color: #ccc; font-size: 1.2rem; cursor: pointer;
-    padding: 0.2rem; line-height: 1; flex-shrink: 0; transition: color 0.2s;
-    &:hover { color: #ef4444; }
+  &__card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+  &__card-title { font-family: var(--diary-font-display); font-size: 1.05rem; color: $color-leaf-800; margin-bottom: 0.5rem; }
+  &__card-actions { display: inline-flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
+  &__icon-btn {
+    width: 2rem; height: 2rem; border: 1px solid rgba(22, 163, 74, 0.12); border-radius: 0.75rem;
+    display: inline-flex; align-items: center; justify-content: center; color: $color-leaf-700;
+    background: rgba(240, 253, 244, 0.72); cursor: pointer;
+    transition: transform 0.2s $ease-spring, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    svg { width: 1rem; height: 1rem; }
+    &:hover { transform: translateY(-2px); border-color: rgba(34, 197, 94, 0.4); background: white; box-shadow: 0 8px 18px rgba(20, 83, 45, 0.1); }
+    &:active { transform: translateY(0) scale(0.96); }
+    &:focus-visible { outline: 3px solid rgba(34, 197, 94, 0.22); outline-offset: 2px; }
+    &--view { color: #0f766e; background: rgba(204, 251, 241, 0.52); border-color: rgba(15, 118, 110, 0.12); }
+    &--delete { color: #dc2626; background: rgba(254, 242, 242, 0.72); border-color: rgba(220, 38, 38, 0.12); }
+    &--delete:hover { color: #b91c1c; border-color: rgba(220, 38, 38, 0.32); }
   }
 
   &__card-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
   &__tag {
     display: inline-flex; align-items: center; gap: 0.2rem;
-    padding: 0.15rem 0.55rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 500;
+    padding: 0.18rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 650;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    &:hover { transform: translateY(-1px); }
     &--plant { background: $color-leaf-50; color: $color-leaf-700; }
     &--stage { background: white; border: 1.5px solid; color: $color-text; }
     &--weather { background: #f0f9ff; color: #0369a1; }
@@ -745,30 +861,50 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
 
   // Modal
   &__modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    position: fixed; inset: 0; background: rgba(12, 31, 22, 0.52);
+    backdrop-filter: blur(10px);
     display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;
   }
-  &__modal { background: white; border-radius: 1rem; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+  &__modal {
+    background: rgba(255, 255, 255, 0.96); border-radius: 1.15rem; width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto;
+    border: 1px solid rgba(187, 247, 208, 0.65);
+    box-shadow: 0 28px 70px rgba(20, 83, 45, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  }
   &__modal-header {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(0,0,0,0.06);
-    h2 { font-family: $font-display; font-size: 1.2rem; color: $color-leaf-800; }
+    padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(22, 163, 74, 0.1);
+    h2 { font-family: var(--diary-font-display); font-size: 1.25rem; color: $color-leaf-800; }
   }
-  &__modal-close { background: none; border: none; font-size: 1.5rem; color: #999; cursor: pointer; padding: 0.25rem; line-height: 1; &:hover { color: #333; } }
+  &__modal-close {
+    width: 2.25rem; height: 2.25rem; border-radius: 50%; background: $color-leaf-50; border: 1px solid rgba(22, 163, 74, 0.12);
+    font-size: 1.35rem; color: $color-leaf-700; cursor: pointer; padding: 0; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: transform 0.2s $ease-spring, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    &:hover { color: $color-leaf-900; background: white; transform: rotate(90deg) scale(1.04); box-shadow: 0 8px 18px rgba(20, 83, 45, 0.1); }
+    &:active { transform: rotate(90deg) scale(0.96); }
+    &:focus-visible { outline: 3px solid rgba(34, 197, 94, 0.22); outline-offset: 2px; }
+  }
   &__modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
   &__modal-footer { display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid rgba(0,0,0,0.06); }
 
   &__input {
-    width: 100%; padding: 0.7rem 1rem; border: 1.5px solid rgba(0,0,0,0.1); border-radius: 0.6rem;
-    font-size: 0.95rem; outline: none; transition: border-color 0.2s; box-sizing: border-box;
-    &:focus { border-color: $color-leaf-500; }
+    width: 100%; padding: 0.78rem 1rem; border: 1px solid rgba(22, 163, 74, 0.14); border-radius: 0.8rem;
+    background: rgba(240, 253, 244, 0.34);
+    font-size: 0.95rem; outline: none; transition: border-color 0.22s ease, box-shadow 0.22s ease, background-color 0.22s ease, transform 0.22s ease; box-sizing: border-box;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    &::placeholder { color: #9ca3af; }
+    &:hover { border-color: rgba(34, 197, 94, 0.34); background: rgba(240, 253, 244, 0.5); }
+    &:focus { border-color: $color-leaf-500; background: white; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12); transform: translateY(-1px); }
     &--sm { padding: 0.5rem 0.7rem; font-size: 0.9rem; }
   }
   &__textarea {
-    width: 100%; padding: 0.7rem 1rem; border: 1.5px solid rgba(0,0,0,0.1); border-radius: 0.6rem;
-    font-size: 0.95rem; outline: none; resize: vertical; font-family: inherit; line-height: 1.6;
-    transition: border-color 0.2s; box-sizing: border-box;
-    &:focus { border-color: $color-leaf-500; }
+    width: 100%; padding: 0.85rem 1rem; border: 1px solid rgba(22, 163, 74, 0.14); border-radius: 0.8rem;
+    background: rgba(240, 253, 244, 0.34);
+    font-size: 0.95rem; outline: none; resize: vertical; font-family: inherit; line-height: 1.65;
+    min-height: 118px;
+    transition: border-color 0.22s ease, box-shadow 0.22s ease, background-color 0.22s ease, transform 0.22s ease; box-sizing: border-box;
+    &:hover { border-color: rgba(34, 197, 94, 0.34); background: rgba(240, 253, 244, 0.5); }
+    &:focus { border-color: $color-leaf-500; background: white; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12); transform: translateY(-1px); }
   }
   &__input-with-unit { display: flex; align-items: center; gap: 0.4rem; }
   &__unit { font-size: 0.82rem; color: $color-text-muted; white-space: nowrap; }
@@ -782,18 +918,23 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
   }
   &__options { display: flex; flex-wrap: wrap; gap: 0.35rem; &--wrap { flex-wrap: wrap; } }
   &__option {
-    padding: 0.3rem 0.6rem; border: 1.5px solid rgba(0,0,0,0.1); border-radius: 1rem;
-    background: white; font-size: 0.78rem; cursor: pointer; transition: all 0.2s; white-space: nowrap;
-    &:hover { border-color: $color-leaf-400; }
-    &--active { background: $color-leaf-50; border-color: $color-leaf-500; color: $color-leaf-700; }
+    padding: 0.38rem 0.72rem; border: 1px solid rgba(22, 163, 74, 0.16); border-radius: 999px;
+    background: rgba(255, 255, 255, 0.86); color: $color-leaf-800; font-size: 0.78rem; font-weight: 650;
+    cursor: pointer; transition: transform 0.2s $ease-spring, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease; white-space: nowrap;
+    &:hover { border-color: rgba(34, 197, 94, 0.5); background: $color-leaf-50; transform: translateY(-2px); }
+    &:active { transform: translateY(0) scale(0.98); }
+    &:focus-visible { outline: 3px solid rgba(34, 197, 94, 0.2); outline-offset: 2px; }
+    &--active { background: linear-gradient(135deg, $color-leaf-500, $color-leaf-600); border-color: transparent; color: white; box-shadow: 0 8px 18px rgba(22, 163, 74, 0.2); }
   }
 
   &__upload { display: flex; gap: 0.5rem; }
   &__upload-btn {
     display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1rem;
-    border: 1.5px dashed rgba(0,0,0,0.15); border-radius: 0.6rem; color: $color-text-muted;
-    font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
-    &:hover { border-color: $color-leaf-500; color: $color-leaf-600; }
+    border: 1px dashed rgba(22, 163, 74, 0.3); border-radius: 0.8rem; color: $color-leaf-700;
+    background: rgba(240, 253, 244, 0.44);
+    font-size: 0.9rem; font-weight: 650; cursor: pointer; transition: transform 0.2s $ease-spring, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    &:hover { border-color: $color-leaf-500; color: $color-leaf-800; background: white; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(20, 83, 45, 0.08); }
+    &:active { transform: translateY(0) scale(0.98); }
   }
   &__preview { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   &__preview-item {
@@ -807,16 +948,22 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
   }
 
   &__cancel-btn {
-    padding: 0.6rem 1.2rem; border: 1.5px solid rgba(0,0,0,0.12); border-radius: 0.6rem;
-    background: white; color: $color-text-muted; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
-    &:hover { border-color: #999; color: #333; }
+    padding: 0.62rem 1.25rem; border: 1px solid rgba(22, 163, 74, 0.16); border-radius: 0.75rem;
+    background: white; color: $color-leaf-700; font-weight: 700; font-size: 0.9rem; cursor: pointer;
+    transition: transform 0.2s $ease-spring, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    &:hover { border-color: rgba(34, 197, 94, 0.48); background: $color-leaf-50; transform: translateY(-1px); }
+    &:active { transform: translateY(0) scale(0.98); }
+    &:focus-visible { outline: 3px solid rgba(34, 197, 94, 0.22); outline-offset: 2px; }
   }
   &__submit-btn {
     padding: 0.6rem 1.5rem; background: linear-gradient(135deg, $color-leaf-600, $color-leaf-500);
-    color: white; border: none; border-radius: 0.6rem; font-weight: 600; font-size: 0.9rem;
-    cursor: pointer; transition: all 0.3s;
+    color: white; border: none; border-radius: 0.75rem; font-weight: 800; font-size: 0.9rem;
+    cursor: pointer; transition: transform 0.22s $ease-spring, box-shadow 0.22s ease, filter 0.22s ease;
+    box-shadow: 0 10px 22px rgba(22, 163, 74, 0.24);
     &:disabled { opacity: 0.5; cursor: not-allowed; }
-    &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
+    &:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(22,163,74,0.32); filter: saturate(1.06); }
+    &:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+    &:focus-visible { outline: 3px solid rgba(34, 197, 94, 0.26); outline-offset: 3px; }
   }
   &__auth-toggle { background: none; border: none; color: $color-leaf-600; font-size: 0.85rem; cursor: pointer; &:hover { text-decoration: underline; } }
   &__error { color: #ef4444; font-size: 0.85rem; margin: 0; }

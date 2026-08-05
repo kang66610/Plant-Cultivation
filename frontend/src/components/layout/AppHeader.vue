@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -16,6 +16,7 @@ const isToolsOpen = ref(false)
 const showUserMenu = ref(false)
 
 const authModalRef = ref<InstanceType<typeof AuthModal> | null>(null)
+let previousBodyOverflow = ''
 
 function openAuth(mode: 'login' | 'register') {
   authModalRef.value?.open(mode)
@@ -28,6 +29,21 @@ function handleScroll() {
 function closeMobile() {
   isMobileOpen.value = false
   isToolsOpen.value = false
+}
+
+function openMobileAuth() {
+  closeMobile()
+  openAuth('login')
+}
+
+function openMobileUserCenter() {
+  closeMobile()
+  router.push('/user-center')
+}
+
+function logoutMobile() {
+  auth.logout()
+  closeMobile()
 }
 
 function toggleTools() {
@@ -61,6 +77,24 @@ const toolLinks = computed(() => [
   { name: t('nav.wateringCalc'), to: '/tools/watering-calculator' },
   { name: t('nav.lightQuiz'), to: '/tools/light-quiz' },
 ])
+
+watch(isMobileOpen, (open) => {
+  if (typeof document === 'undefined') return
+  if (open) {
+    previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = previousBodyOverflow
+  }
+})
+
+watch(() => route.fullPath, closeMobile)
+
+onUnmounted(() => {
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = previousBodyOverflow
+  }
+})
 </script>
 
 <template>
@@ -185,6 +219,7 @@ const toolLinks = computed(() => [
         class="header__hamburger"
         :class="{ 'header__hamburger--open': isMobileOpen }"
         aria-label="Toggle menu"
+        :aria-expanded="isMobileOpen"
         @click="isMobileOpen = !isMobileOpen"
       >
         <span></span>
@@ -195,8 +230,14 @@ const toolLinks = computed(() => [
 
     <!-- Mobile Drawer -->
     <Transition name="drawer">
-      <div v-if="isMobileOpen" class="header__drawer-overlay" @click="closeMobile">
+      <div v-if="isMobileOpen" class="header__drawer-overlay" @click.self="closeMobile">
         <nav class="header__drawer" @click.stop>
+          <button class="header__drawer-close" type="button" aria-label="Close menu" @click="closeMobile">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+
           <RouterLink
             v-for="link in navLinks"
             :key="link.to"
@@ -226,13 +267,13 @@ const toolLinks = computed(() => [
           <button class="header__drawer-lang-btn" @click="toggleLang">
             {{ langLabel }}
           </button>
-          <button v-if="auth.isLoggedIn" class="header__drawer-link" @click="closeMobile; $router.push('/user-center')">
+          <button v-if="auth.isLoggedIn" class="header__drawer-link" @click="openMobileUserCenter">
             {{ t('nav.userCenter') }}
           </button>
-          <button v-if="auth.isLoggedIn" class="header__drawer-link" style="color: #ef4444;" @click="auth.logout(); closeMobile()">
+          <button v-if="auth.isLoggedIn" class="header__drawer-link" style="color: #ef4444;" @click="logoutMobile">
             {{ t('nav.logout') }}
           </button>
-          <button v-else class="header__drawer-link" @click="closeMobile; openAuth('login')">
+          <button v-else class="header__drawer-link" @click="openMobileAuth">
             {{ t('nav.login') }}
           </button>
         </nav>
@@ -582,18 +623,22 @@ const toolLinks = computed(() => [
     position: fixed;
     inset: 0;
     top: 0;
-    z-index: 99;
+    z-index: 1000;
     background: rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(4px);
+    overscroll-behavior: contain;
+    touch-action: manipulation;
   }
 
   &__drawer {
     position: fixed;
     top: 0;
     right: 0;
+    z-index: 1;
     width: 280px;
     max-width: 80vw;
     height: 100vh;
+    height: 100dvh;
     padding: 5rem 1.5rem 2rem;
     background: var(--color-surface);
     box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
@@ -601,6 +646,41 @@ const toolLinks = computed(() => [
     flex-direction: column;
     gap: 0.25rem;
     overflow-y: auto;
+  }
+
+  &__drawer-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    background: rgba(34, 197, 94, 0.06);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+      color 0.2s var(--ease-smooth),
+      background-color 0.2s var(--ease-smooth),
+      transform 0.2s var(--ease-smooth);
+
+    svg {
+      width: 1.125rem;
+      height: 1.125rem;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    &:hover {
+      color: var(--color-primary-dark);
+      background: rgba(34, 197, 94, 0.12);
+      transform: rotate(6deg) scale(1.04);
+    }
   }
 
   &__drawer-link {

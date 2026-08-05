@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getPlant } from '@/api/plantApi'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
 
 interface CareGuide {
@@ -138,6 +138,15 @@ const humidityLabels = computed<Record<string, string>>(() => ({
   high: t('encyclopedia.humidityHigh'),
 }))
 
+const guideTypeLabels = computed<Record<string, string>>(() => ({
+  watering: t('detail.water'),
+  light: t('detail.light'),
+  environment: t('detail.environment'),
+  fertilizer: t('detail.fertilizer'),
+  pruning: t('detail.pruneMethod'),
+  general: t('detail.care'),
+}))
+
 const allTabs = computed(() => [
   'overview', 'morphology', 'environment', 'care',
   'seasonal', 'pest', 'safety', 'problems', 'value', 'guides'
@@ -147,6 +156,91 @@ function parseJson(val: string | null | undefined): any {
   if (!val) return null
   try { return JSON.parse(val) } catch { return null }
 }
+
+function copy(zh: string, en: string) {
+  return locale.value === 'zh-CN' ? zh : en
+}
+
+function toJsonList(items: Array<string | number | null | undefined>) {
+  return JSON.stringify(items.map((item) => String(item).trim()).filter(Boolean))
+}
+
+function joinText(items: Array<string | null | undefined>) {
+  return items.map((item) => item?.trim()).filter(Boolean).join('\n')
+}
+
+const displayGuides = computed<CareGuide[]>(() => {
+  if (!plant.value) return []
+  if (plant.value.careGuides?.length) return plant.value.careGuides
+
+  const p = plant.value
+  const guides: CareGuide[] = []
+  let fallbackId = -1
+
+  function addGuide(
+    careType: string,
+    title: string,
+    content: string | null | undefined,
+    tips: Array<string | number | null | undefined> = [],
+    commonMistakes: Array<string | number | null | undefined> = []
+  ) {
+    const cleanContent = content?.trim()
+    if (!cleanContent) return
+    guides.push({
+      id: fallbackId--,
+      careType,
+      title,
+      content: cleanContent,
+      tips: toJsonList(tips),
+      commonMistakes: toJsonList(commonMistakes),
+    })
+  }
+
+  addGuide(
+    'watering',
+    copy('浇水指南', 'Watering guide'),
+    p.waterDescription || p.waterPrinciple,
+    [p.waterPrinciple, p.waterQuality, p.waterSpring, p.waterSummer, p.waterFall, p.waterWinter],
+    [p.waterTaboo]
+  )
+
+  addGuide(
+    'light',
+    copy('光照指南', 'Light guide'),
+    p.lightDescription,
+    [
+      p.lightHoursMin && p.lightHoursMax
+        ? `${copy('建议光照', 'Suggested light')}: ${p.lightHoursMin}-${p.lightHoursMax} ${t('detail.hours')}`
+        : null,
+      lightLevelMap.value[p.lightLevel]?.label,
+    ]
+  )
+
+  addGuide(
+    'environment',
+    copy('环境指南', 'Environment guide'),
+    joinText([p.growthHabit, p.tempDescription, p.humidityDescription]),
+    [p.suitablePosition, p.soilRecipe, p.potSizeSuggestion]
+  )
+
+  addGuide(
+    'fertilizer',
+    copy('施肥指南', 'Fertilizer guide'),
+    p.fertilizerDescription || p.fertilizerGrow,
+    [p.fertilizerBestSeason, p.fertilizerGrow, p.fertilizerBloom],
+    [p.fertilizerTaboo]
+  )
+
+  addGuide(
+    'pruning',
+    copy('修剪指南', 'Pruning guide'),
+    p.pruneMethod || p.pruneParts,
+    [p.pruneBestTime, p.pruneParts],
+    [p.pruneTaboo]
+  )
+
+  return guides
+})
 
 const problemKeyMap: Record<string, string> = {
   yellowLeaves: '黄叶',
@@ -545,18 +639,26 @@ watch(() => route.params.slug, fetchPlant)
 
       <!-- 养护指南 -->
       <div v-if="activeTab === 'guides'" class="detail__guides">
-        <div v-for="guide in plant.careGuides" :key="guide.id" class="detail__guide">
-          <h3 class="detail__guide-title">{{ guide.title }}</h3>
-          <p class="detail__guide-content">{{ guide.content }}</p>
-          <div v-if="parseJson(guide.tips)" class="detail__guide-tips">
-            <h4>{{ $t('detail.tips') }}</h4>
-            <ul><li v-for="(tip, i) in parseJson(guide.tips)" :key="i">{{ tip }}</li></ul>
+        <template v-if="displayGuides.length">
+          <div v-for="guide in displayGuides" :key="guide.id" class="detail__guide">
+            <span class="detail__guide-type">
+              {{ guideTypeLabels[guide.careType] || guide.careType }}
+            </span>
+            <h3 class="detail__guide-title">{{ guide.title }}</h3>
+            <p class="detail__guide-content">{{ guide.content }}</p>
+            <div v-if="parseJson(guide.tips)?.length" class="detail__guide-tips">
+              <h4>{{ $t('detail.tips') }}</h4>
+              <ul><li v-for="(tip, i) in parseJson(guide.tips)" :key="i">{{ tip }}</li></ul>
+            </div>
+            <div v-if="parseJson(guide.commonMistakes)?.length" class="detail__guide-mistakes">
+              <h4>{{ $t('detail.commonMistakes') }}</h4>
+              <ul><li v-for="(m, i) in parseJson(guide.commonMistakes)" :key="i">{{ m }}</li></ul>
+            </div>
           </div>
-          <div v-if="parseJson(guide.commonMistakes)" class="detail__guide-mistakes">
-            <h4>{{ $t('detail.commonMistakes') }}</h4>
-            <ul><li v-for="(m, i) in parseJson(guide.commonMistakes)" :key="i">{{ m }}</li></ul>
-          </div>
-        </div>
+        </template>
+        <p v-else class="detail__empty detail__empty--guides">
+          {{ copy('这个植物暂时还没有养护指南数据。', 'Care guide data is not available for this plant yet.') }}
+        </p>
       </div>
     </div>
   </div>
@@ -655,9 +757,32 @@ watch(() => route.params.slug, fetchPlant)
   }
 
   &__empty { text-align: center; padding: 3rem; color: $color-text-muted; }
+  &__empty--guides {
+    border: 1px dashed rgba(34, 197, 94, 0.25);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(240, 253, 244, 0.85), rgba(255, 255, 255, 0.96));
+  }
 
   &__guides { }
-  &__guide { padding: 1.5rem; background: white; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 1.5rem; }
+  &__guide {
+    padding: 1.5rem;
+    background: white;
+    border: 1px solid rgba(34, 197, 94, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(15, 118, 62, 0.07);
+    margin-bottom: 1.5rem;
+  }
+  &__guide-type {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    color: $color-leaf-700;
+    background: rgba(34, 197, 94, 0.12);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
   &__guide-title { font-family: $font-display; font-size: 1.15rem; color: $color-leaf-900; margin-bottom: 0.75rem; }
   &__guide-content { font-size: 0.95rem; line-height: 1.6; color: $color-text; margin-bottom: 1rem; }
   &__guide-tips, &__guide-mistakes { margin-top: 1rem; h4 { font-size: 0.9rem; margin-bottom: 0.5rem; } ul { list-style: none; padding: 0; } li { padding: 0.3rem 0; font-size: 0.85rem; color: $color-text; padding-left: 1.25rem; position: relative; &::before { content: '•'; position: absolute; left: 0; color: $color-leaf-500; } } }
