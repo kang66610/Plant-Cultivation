@@ -42,8 +42,10 @@ for name in SEED_TABLES:
         block = block.strip()
         insert_blocks[name] = block
 
-expected = ["category", "plant", "plant_category", "care_guide", "plant_diary",
-            "post", "post_comment", "post_like", "user", "user_plant_collection"]
+# Keep tables in dependency order so a fresh MySQL import succeeds with
+# foreign-key checks enabled. User-owned tables reference `user`.
+expected = ["category", "plant", "user", "plant_category", "care_guide", "plant_diary",
+            "post", "post_comment", "post_like", "user_plant_collection"]
 missing = [t for t in expected if t not in table_blocks]
 if missing:
     sys.exit(f"缺少表定义: {missing}")

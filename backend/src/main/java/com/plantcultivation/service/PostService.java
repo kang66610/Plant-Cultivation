@@ -88,7 +88,7 @@ public class PostService {
         // 先尝试删除：影响行数 > 0 说明本次确实取消了点赞（并发下 delete 是原子的，不会重复减计数）
         int deleted = postLikeMapper.delete(qw);
         if (deleted > 0) {
-            postMapper.incrementCount(postId, "like_count", -1);
+            postMapper.incrementLikeCount(postId, -1);
             return false;
         }
         // 未找到点赞记录 → 执行点赞；并发下可能撞 uk_post_user 唯一键，捕获后按"已点赞"处理
@@ -97,7 +97,7 @@ public class PostService {
         like.setUserAccount(account);
         try {
             postLikeMapper.insert(like);
-            postMapper.incrementCount(postId, "like_count", 1);
+            postMapper.incrementLikeCount(postId, 1);
             return true;
         } catch (org.springframework.dao.DuplicateKeyException e) {
             return true; // 并发下已存在，视为点赞成功
@@ -115,7 +115,7 @@ public class PostService {
         comment.setContent(content);
         postCommentMapper.insert(comment);
 
-        postMapper.incrementCount(postId, "comment_count", 1);
+        postMapper.incrementCommentCount(postId, 1);
 
         // 批量查询用户信息
         List<User> users = userMapper.selectByAccounts(List.of(account));

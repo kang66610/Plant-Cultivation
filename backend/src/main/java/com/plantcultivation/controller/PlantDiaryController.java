@@ -28,7 +28,8 @@ public class PlantDiaryController {
 
     @GetMapping("/{id}")
     public ResultVO<PlantDiary> getDiary(@PathVariable Long id) {
-        PlantDiary diary = diaryService.getDiary(id);
+        String account = requireLogin();
+        PlantDiary diary = diaryService.getDiary(id, account);
         if (diary == null) {
             return ResultVO.error(404, "日记不存在");
         }

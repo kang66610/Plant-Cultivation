@@ -31,8 +31,10 @@ public class PlantDiaryService {
         return result;
     }
 
-    public PlantDiary getDiary(Long id) {
-        PlantDiary diary = diaryMapper.selectById(id);
+    public PlantDiary getDiary(Long id, String account) {
+        QueryWrapper<PlantDiary> qw = new QueryWrapper<>();
+        qw.eq("id", id).eq("user_account", account);
+        PlantDiary diary = diaryMapper.selectOne(qw);
         if (diary != null) {
             enrichDiary(diary);
         }

@@ -32,7 +32,7 @@ jobs:
         # chmod 确保 Windows 提交丢失的执行权限在 CI 中恢复
         run: |
           chmod +x gradlew
-          ./gradlew bootJar --no-daemon
+          ./gradlew test bootJar --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
@@ -91,7 +91,11 @@ jobs:
           # SSH_KEY 通过 env 传递（secrets 内嵌在 run 中会破坏多行格式）
           SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
         run: |
-          echo "$SSH_KEY" > /tmp/deploy_key
+          if printf '%s\n' "$SSH_KEY" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$SSH_KEY" > /tmp/deploy_key
+          else
+            printf '%s' "$SSH_KEY" | base64 -d > /tmp/deploy_key
+          fi
           chmod 600 /tmp/deploy_key
           SSH_OPTS="-i /tmp/deploy_key -p $PORT -o StrictHostKeyChecking=no"
           # 清理残留目录，防止历史 scp 嵌套（frontend-new/frontend-dist）

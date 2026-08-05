@@ -126,6 +126,19 @@ CREATE TABLE IF NOT EXISTS `plant` (
   FULLTEXT KEY `ft_search` (`common_name`,`scientific_name`,`description`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `user` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `avatar_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bio` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `account` (`account`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `plant_category` (
   `plant_id` bigint NOT NULL,
   `category_id` bigint NOT NULL,
@@ -217,19 +230,6 @@ CREATE TABLE IF NOT EXISTS `post_like` (
   KEY `user_account` (`user_account`),
   CONSTRAINT `post_like_ibfk_1` FOREIGN KEY (`post_id`) REFERENCES `post` (`id`) ON DELETE CASCADE,
   CONSTRAINT `post_like_ibfk_2` FOREIGN KEY (`user_account`) REFERENCES `user` (`account`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `user` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `avatar_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `bio` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `account` (`account`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `user_plant_collection` (

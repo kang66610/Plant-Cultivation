@@ -65,8 +65,18 @@ fi
 # 方式 A：systemd 服务（推荐，宝塔 Java 项目管理器也是这种方式）
 if systemctl list-units --type=service 2>/dev/null | grep -q "plant-cultivation"; then
   log "重启 systemd 服务 plant-cultivation..."
-  systemctl restart plant-cultivation
-  systemctl is-active plant-cultivation
+  if ! systemctl restart plant-cultivation; then
+    log "ERROR: systemd restart failed"
+    systemctl status plant-cultivation --no-pager -l || true
+    journalctl -u plant-cultivation -n 50 --no-pager || true
+    exit 1
+  fi
+  if ! systemctl is-active --quiet plant-cultivation; then
+    log "ERROR: plant-cultivation service is not active after restart"
+    systemctl status plant-cultivation --no-pager -l || true
+    journalctl -u plant-cultivation -n 50 --no-pager || true
+    exit 1
+  fi
 # 方式 B：无 systemd 时用 nohup 后台运行
 else
   log "未找到 systemd 服务，使用 nohup 方式重启..."
@@ -94,7 +104,10 @@ if [ "$BACKEND_OK" = "1" ]; then
 else
   log "ERROR: 后端 30 秒内未就绪！可回滚上一版本："
   log "  mv $BACKEND/app.jar.bak $BACKEND/app.jar && systemctl restart plant-cultivation"
-  log "  （前端回滚：rm -rf $FRONTEND/dist && mv $FRONTEND/dist.bak $FRONTEND/dist）"
+  log "  rm -rf $FRONTEND/dist && mv $FRONTEND/dist.bak $FRONTEND/dist"
+  systemctl status plant-cultivation --no-pager -l || true
+  journalctl -u plant-cultivation -n 50 --no-pager || true
+  exit 1
 fi
 
 log "部署完成 ✔"
