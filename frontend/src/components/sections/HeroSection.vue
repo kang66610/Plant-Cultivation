@@ -573,7 +573,7 @@ onUnmounted(() => {
             :key="`top-${plant.name}-${index}`"
             class="hero__plant-tile"
           >
-            <img :src="plant.image" :alt="plant.name" loading="lazy" />
+            <img :src="plant.image" :alt="plant.name" loading="lazy" decoding="async" fetchpriority="low" />
           </article>
         </div>
       </div>
@@ -584,7 +584,7 @@ onUnmounted(() => {
             :key="`bottom-${plant.name}-${index}`"
             class="hero__plant-tile"
           >
-            <img :src="plant.image" :alt="plant.name" loading="lazy" />
+            <img :src="plant.image" :alt="plant.name" loading="lazy" decoding="async" fetchpriority="low" />
           </article>
         </div>
       </div>

@@ -5,9 +5,10 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { listCollections, markWatered, removeCollection, updateCollection } from '@/api/collectionApi'
 import { uploadImage } from '@/api/uploadApi'
+import { prepareImageForUpload } from '@/utils/imageUpload'
 import type { PlantCollection } from '@/types'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const auth = useAuthStore()
 
@@ -179,8 +180,9 @@ async function handleAvatarUpload(e: Event) {
   avatarUploading.value = true
   avatarUploadError.value = ''
   try {
+    const prepared = await prepareImageForUpload(file, { locale: locale.value, targetDimension: 900, targetBytes: 500 * 1024 })
     // 不手动设置 Content-Type：让浏览器自动生成带 boundary 的 multipart 头
-    const res = await uploadImage(file)
+    const res = await uploadImage(prepared.file)
     if (res.code === 200) {
       const avatarUrl = res.data
       const err = await auth.updateProfile(auth.user!.username, auth.user!.bio || '', avatarUrl)

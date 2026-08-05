@@ -105,19 +105,6 @@
         <h2 class="about__section-title">{{ $t('about.team') }}</h2>
         <p class="about__section-text about__section-text--lead">{{ $t('about.teamText') }}</p>
       </section>
-
-      <!-- Contact -->
-      <section class="about__section about__section--center">
-        <h2 class="about__section-title">{{ $t('about.contact') }}</h2>
-        <p class="about__section-text">{{ $t('about.contactText') }}</p>
-        <a href="mailto:233793kang@gmail.com" class="about__contact-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <rect x="2" y="4" width="20" height="16" rx="2"/>
-            <path d="M22 4L12 13 2 4"/>
-          </svg>
-          233793kang@gmail.com
-        </a>
-      </section>
     </div>
   </div>
 </template>
@@ -313,27 +300,6 @@
     line-height: 1.65;
     color: $color-text-muted;
   }
-
-  // Contact
-  &__contact-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 1.25rem;
-    padding: 0.75rem 1.5rem;
-    background: linear-gradient(135deg, $color-leaf-600, $color-leaf-500);
-    color: white;
-    text-decoration: none;
-    border-radius: 0.75rem;
-    font-weight: 600;
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(22, 163, 74, 0.3);
-    }
-  }
 }
 
 @keyframes float {
@@ -367,11 +333,6 @@
 
     &__values {
       grid-template-columns: 1fr;
-    }
-
-    &__contact-btn {
-      width: 100%;
-      justify-content: center;
     }
   }
 }

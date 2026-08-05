@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { AuthModal } from '@/components/common'
 import * as diaryApi from '@/api/diaryApi'
 import { uploadImage as uploadImageApi } from '@/api/uploadApi'
+import { prepareImageForUpload } from '@/utils/imageUpload'
 import type { Diary } from '@/types'
 
 const { t, locale } = useI18n()
@@ -15,8 +16,13 @@ const loading = ref(false)
 const showModal = ref(false)
 const submitting = ref(false)
 const filterPlant = ref('')
+const diarySearch = ref('')
+const diaryView = ref<'timeline' | 'cards'>('timeline')
+const diaryError = ref('')
 const editingId = ref<number | null>(null)
 const selectedDiary = ref<Diary | null>(null)
+const uploadLoading = ref(false)
+const uploadError = ref('')
 
 const newDiary = ref({
   title: '',
@@ -132,8 +138,15 @@ const plantNames = computed(() => {
 })
 
 const filteredDiaries = computed(() => {
-  if (!filterPlant.value) return diaries.value
-  return diaries.value.filter(d => d.plantName === filterPlant.value)
+  const query = diarySearch.value.trim().toLowerCase()
+  return diaries.value.filter((d) => {
+    const matchesPlant = !filterPlant.value || d.plantName === filterPlant.value
+    const matchesQuery = !query
+      || d.title.toLowerCase().includes(query)
+      || (d.content || '').toLowerCase().includes(query)
+      || (d.plantName || '').toLowerCase().includes(query)
+    return matchesPlant && matchesQuery
+  })
 })
 
 // Group by date
@@ -159,14 +172,42 @@ const stats = computed(() => {
   return { total, plants, days }
 })
 
+const growthTrend = computed(() => {
+  const entries = [...diaries.value]
+    .filter(d => d.heightCm || d.leafCount)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    .slice(-8)
+
+  const maxHeight = Math.max(...entries.map(d => d.heightCm || 0), 1)
+  const maxLeaves = Math.max(...entries.map(d => d.leafCount || 0), 1)
+  const points = entries.map((entry, index) => {
+    const x = entries.length <= 1 ? 50 : (index / (entries.length - 1)) * 100
+    const heightY = 100 - ((entry.heightCm || 0) / maxHeight) * 86 - 7
+    const leafY = 100 - ((entry.leafCount || 0) / maxLeaves) * 86 - 7
+    return { entry, x, heightY, leafY }
+  })
+
+  return {
+    entries,
+    heightLine: points.map(p => `${p.x},${p.heightY}`).join(' '),
+    leafLine: points.map(p => `${p.x},${p.leafY}`).join(' '),
+    points,
+  }
+})
+
 async function loadDiaries() {
   if (!auth.isLoggedIn) return
   loading.value = true
+  diaryError.value = ''
   try {
     const res = await diaryApi.listMyDiaries({ page: 1, size: 200 })
     if (res.code === 200) {
       diaries.value = res.data.records
+    } else {
+      diaryError.value = res.message || uiText('日记加载失败', 'Failed to load entries')
     }
+  } catch {
+    diaryError.value = uiText('日记加载失败，请稍后重试', 'Failed to load entries. Please try again.')
   } finally {
     loading.value = false
   }
@@ -220,13 +261,28 @@ async function uploadImage(event: Event) {
   const input = event.target as HTMLInputElement
   if (!input.files?.length) return
   const file = input.files[0]
+  if (uploadLoading.value) return
+  uploadError.value = ''
+  if (newDiary.value.images.length >= 6) {
+    uploadError.value = uiText('最多上传 6 张图片', 'You can upload up to 6 images.')
+    input.value = ''
+    return
+  }
+  uploadLoading.value = true
   try {
+    const prepared = await prepareImageForUpload(file, { locale: locale.value })
     // 不手动设置 Content-Type：让浏览器自动生成带 boundary 的 multipart 头
-    const res = await uploadImageApi(file)
+    const res = await uploadImageApi(prepared.file)
     if (res.code === 200) {
       newDiary.value.images.push(res.data)
+    } else {
+      uploadError.value = res.message || uiText('上传失败', 'Upload failed.')
     }
-  } catch {}
+  } catch (err) {
+    uploadError.value = err instanceof Error ? err.message : uiText('上传失败，请稍后重试', 'Upload failed. Please try again.')
+  } finally {
+    uploadLoading.value = false
+  }
   input.value = ''
 }
 
@@ -237,6 +293,7 @@ function removeImage(index: number) {
 function resetForm() {
   newDiary.value = { title: '', content: '', plantName: '', weather: '', mood: '', heightCm: null, leafCount: null, growthStage: '', images: [] }
   editingId.value = null
+  uploadError.value = ''
 }
 
 function editDiary(entry: Diary) {
@@ -342,8 +399,58 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
           </div>
         </div>
 
+        <div v-if="growthTrend.entries.length >= 2" class="diary__chart">
+          <div class="diary__chart-head">
+            <div>
+              <h3>{{ uiText('生长趋势', 'Growth trend') }}</h3>
+              <p>{{ uiText('最近 8 条有数据的记录', 'Latest 8 measured entries') }}</p>
+            </div>
+            <div class="diary__chart-legend">
+              <span><i class="diary__chart-dot diary__chart-dot--height"></i>{{ t('diary.height') }}</span>
+              <span><i class="diary__chart-dot diary__chart-dot--leaf"></i>{{ t('diary.leafCount') }}</span>
+            </div>
+          </div>
+          <svg class="diary__chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 20 H100 M0 50 H100 M0 80 H100" class="diary__chart-grid" />
+            <polyline v-if="growthTrend.heightLine" :points="growthTrend.heightLine" class="diary__chart-line diary__chart-line--height" />
+            <polyline v-if="growthTrend.leafLine" :points="growthTrend.leafLine" class="diary__chart-line diary__chart-line--leaf" />
+            <g v-for="point in growthTrend.points" :key="point.entry.id">
+              <circle v-if="point.entry.heightCm" :cx="point.x" :cy="point.heightY" r="1.8" class="diary__chart-point diary__chart-point--height" />
+              <circle v-if="point.entry.leafCount" :cx="point.x" :cy="point.leafY" r="1.8" class="diary__chart-point diary__chart-point--leaf" />
+            </g>
+          </svg>
+          <div class="diary__chart-labels">
+            <span v-for="point in growthTrend.points" :key="point.entry.id">{{ formatDate(point.entry.createdAt).slice(5) }}</span>
+          </div>
+        </div>
+
         <!-- Actions -->
         <div class="diary__actions">
+          <div class="diary__toolbar">
+            <div class="diary__search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.8-3.8" />
+              </svg>
+              <input
+                v-model="diarySearch"
+                :placeholder="uiText('搜索标题、内容或植物...', 'Search title, content, or plant...')"
+              />
+            </div>
+            <div class="diary__view-toggle" aria-label="Diary view">
+              <button
+                :class="{ 'diary__view-btn--active': diaryView === 'timeline' }"
+                class="diary__view-btn"
+                @click="diaryView = 'timeline'"
+              >{{ uiText('时间线', 'Timeline') }}</button>
+              <button
+                :class="{ 'diary__view-btn--active': diaryView === 'cards' }"
+                class="diary__view-btn"
+                @click="diaryView = 'cards'"
+              >{{ uiText('卡片', 'Cards') }}</button>
+            </div>
+          </div>
+
           <div class="diary__filters" v-if="plantNames.length > 0">
             <button
               :class="['diary__filter-btn', { 'diary__filter-btn--active': !filterPlant }]"
@@ -367,6 +474,11 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
         <!-- Loading -->
         <div v-if="loading" class="diary__loading">{{ t('encyclopedia.loading') }}</div>
 
+        <div v-else-if="diaryError" class="diary__empty diary__empty--error">
+          <p>{{ diaryError }}</p>
+          <button class="diary__retry-btn" @click="loadDiaries">{{ uiText('重试', 'Retry') }}</button>
+        </div>
+
         <!-- Empty -->
         <div v-else-if="diaries.length === 0" class="diary__empty">
           <svg viewBox="0 0 80 80" fill="none" width="80" height="80">
@@ -377,8 +489,15 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
           <p>{{ t('diary.empty') }}</p>
         </div>
 
+        <div v-else-if="filteredDiaries.length === 0" class="diary__empty">
+          <p>{{ uiText('没有找到匹配的日记', 'No matching entries found') }}</p>
+          <button class="diary__retry-btn" @click="filterPlant = ''; diarySearch = ''">
+            {{ uiText('清除筛选', 'Clear filters') }}
+          </button>
+        </div>
+
         <!-- Timeline -->
-        <div v-else class="diary__timeline">
+        <div v-else class="diary__timeline" :class="{ 'diary__timeline--cards': diaryView === 'cards' }">
           <div v-for="group in groupedDiaries" :key="group.date" class="diary__day">
             <div class="diary__day-header">
               <div class="diary__day-dot"></div>
@@ -624,14 +743,16 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
             </div>
 
             <div class="diary__upload">
-              <label class="diary__upload-btn">
+              <label class="diary__upload-btn" :class="{ 'diary__upload-btn--disabled': uploadLoading || newDiary.images.length >= 6 }">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                   <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>
                 </svg>
-                {{ t('diary.uploadImage') }}
-                <input type="file" accept="image/*" @change="uploadImage" hidden />
+                {{ uploadLoading ? uiText('处理中...', 'Processing...') : newDiary.images.length >= 6 ? uiText('已达上限', 'Limit reached') : t('diary.uploadImage') }}
+                <input type="file" accept="image/*" :disabled="uploadLoading || newDiary.images.length >= 6" @change="uploadImage" hidden />
               </label>
+              <span class="diary__upload-count">{{ newDiary.images.length }}/6</span>
             </div>
+            <p v-if="uploadError" class="diary__error">{{ uploadError }}</p>
 
             <div v-if="newDiary.images.length" class="diary__preview">
               <div v-for="(img, idx) in newDiary.images" :key="idx" class="diary__preview-item">
@@ -720,8 +841,167 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
   &__stat-num { display: block; font-family: var(--diary-font-display); font-size: 1.8rem; font-weight: 700; color: $color-leaf-600; font-variant-numeric: tabular-nums; }
   &__stat-label { font-size: 0.8rem; color: $color-text-muted; }
 
+  &__chart {
+    margin: -0.75rem 0 2rem;
+    padding: 1.1rem 1.15rem 0.9rem;
+    border: 1px solid rgba(22, 163, 74, 0.14);
+    border-radius: 1.05rem;
+    background:
+      radial-gradient(circle at 14% 0%, rgba(187, 247, 208, 0.44), transparent 32%),
+      linear-gradient(180deg, rgba(240, 253, 244, 0.88), rgba(255, 255, 255, 0.96));
+    box-shadow: 0 16px 36px rgba(20, 83, 45, 0.08);
+    animation: fadeInUp 0.45s ease both;
+  }
+  &__chart-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.7rem;
+
+    h3 {
+      font-family: var(--diary-font-display);
+      font-size: 1.05rem;
+      color: $color-leaf-800;
+      margin: 0 0 0.1rem;
+    }
+
+    p {
+      margin: 0;
+      color: $color-text-muted;
+      font-size: 0.8rem;
+    }
+  }
+  &__chart-legend {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    color: $color-text-muted;
+    font-size: 0.78rem;
+    font-weight: 650;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+  }
+  &__chart-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    display: inline-block;
+
+    &--height { background: #16a34a; }
+    &--leaf { background: #0ea5e9; }
+  }
+  &__chart-svg {
+    width: 100%;
+    height: 150px;
+    overflow: visible;
+  }
+  &__chart-grid {
+    stroke: rgba(22, 163, 74, 0.1);
+    stroke-width: 0.5;
+  }
+  &__chart-line {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.8;
+    vector-effect: non-scaling-stroke;
+
+    &--height { stroke: #16a34a; }
+    &--leaf { stroke: #0ea5e9; }
+  }
+  &__chart-point {
+    vector-effect: non-scaling-stroke;
+    stroke: white;
+    stroke-width: 1.2;
+
+    &--height { fill: #16a34a; }
+    &--leaf { fill: #0ea5e9; }
+  }
+  &__chart-labels {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.35rem;
+    margin-top: 0.25rem;
+    color: $color-text-muted;
+    font-size: 0.72rem;
+  }
+
   // Actions
   &__actions { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  &__toolbar {
+    width: 100%;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  &__search {
+    flex: 1;
+    min-width: min(100%, 260px);
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid rgba(22, 163, 74, 0.14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow: 0 10px 24px rgba(20, 83, 45, 0.05);
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+      color: $color-leaf-600;
+      flex-shrink: 0;
+    }
+
+    input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: $color-text;
+      font: inherit;
+      font-size: 0.9rem;
+    }
+  }
+  &__view-toggle {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid rgba(22, 163, 74, 0.14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.86);
+  }
+  &__view-btn {
+    min-height: 2rem;
+    padding: 0.4rem 0.8rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: $color-text-muted;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color 0.22s ease, background-color 0.22s ease, transform 0.22s ease;
+
+    &:hover {
+      color: $color-leaf-700;
+      transform: translateY(-1px);
+    }
+
+    &--active {
+      color: white;
+      background: linear-gradient(135deg, $color-leaf-600, $color-leaf-500);
+      box-shadow: 0 8px 18px rgba(22, 163, 74, 0.2);
+    }
+  }
   &__filters { display: flex; gap: 0.4rem; flex-wrap: wrap; flex: 1; }
   &__filter-btn {
     padding: 0.45rem 0.95rem; border: 1px solid rgba(22, 163, 74, 0.18); border-radius: 999px;
@@ -746,12 +1026,68 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
 
   &__loading, &__empty { text-align: center; padding: 3rem 1rem; color: $color-text-muted; }
   &__empty { svg { margin-bottom: 1rem; opacity: 0.4; } p { font-size: 1.05rem; } }
+  &__empty--error {
+    color: #b91c1c;
+  }
+  &__retry-btn {
+    margin-top: 1rem;
+    padding: 0.55rem 1rem;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(135deg, $color-leaf-600, $color-leaf-500);
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 10px 22px rgba(22, 163, 74, 0.2);
+    transition: transform 0.22s $ease-spring, box-shadow 0.22s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 28px rgba(22, 163, 74, 0.28);
+    }
+  }
 
   // Timeline
   &__timeline { position: relative; padding-left: 24px; }
   &__timeline::before {
     content: ''; position: absolute; left: 7px; top: 0; bottom: 0;
     width: 2px; background: linear-gradient(to bottom, $color-leaf-300, $color-leaf-100);
+  }
+  &__timeline--cards {
+    padding-left: 0;
+
+    &::before {
+      display: none;
+    }
+
+    .diary__day-header {
+      padding-left: 0;
+    }
+
+    .diary__day-dot {
+      display: none;
+    }
+
+    .diary__day-info {
+      margin-left: 0;
+    }
+
+    .diary__day-entries {
+      margin-left: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .diary__card {
+      height: 100%;
+      flex-direction: column;
+    }
+
+    .diary__card-time {
+      min-width: 0;
+      padding-top: 0;
+    }
   }
 
   &__day { margin-bottom: 2rem; position: relative; }
@@ -935,6 +1271,13 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
     font-size: 0.9rem; font-weight: 650; cursor: pointer; transition: transform 0.2s $ease-spring, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     &:hover { border-color: $color-leaf-500; color: $color-leaf-800; background: white; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(20, 83, 45, 0.08); }
     &:active { transform: translateY(0) scale(0.98); }
+    &--disabled { opacity: 0.58; pointer-events: none; }
+  }
+  &__upload-count {
+    display: inline-flex;
+    align-items: center;
+    color: $color-text-muted;
+    font-size: 0.82rem;
   }
   &__preview { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   &__preview-item {
@@ -971,6 +1314,16 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
 
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 0.8; } }
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 @media (max-width: 640px) {
   .diary {

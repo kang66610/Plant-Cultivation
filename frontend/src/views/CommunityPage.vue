@@ -8,6 +8,7 @@ import { listPlants } from '@/api/plantApi'
 import * as postApi from '@/api/postApi'
 import { uploadImage } from '@/api/uploadApi'
 import { getCategoryDisplayName, getPlantDisplayName, plantCategoryOptions } from '@/utils/plantI18n'
+import { prepareImageForUpload } from '@/utils/imageUpload'
 import type { Plant, Post, PostComment } from '@/types'
 
 const { t, locale } = useI18n()
@@ -30,6 +31,10 @@ const showCreatePost = ref(false)
 const newPost = ref({ content: '', images: [] as string[], plantSlug: '', categorySlug: '' })
 const activePostPicker = ref<'category' | 'plant' | null>(null)
 const uploadLoading = ref(false)
+const createSubmitting = ref(false)
+const createError = ref('')
+const uploadError = ref('')
+const postPlantSearch = ref('')
 
 const expandedPost = ref<number | null>(null)
 const comments = ref<Record<number, PostComment[]>>({})
@@ -139,10 +144,12 @@ function setPostCategory(slug: string) {
 function setPostPlant(slug: string) {
   newPost.value.plantSlug = slug
   activePostPicker.value = null
+  postPlantSearch.value = ''
 }
 
 function togglePostPicker(picker: 'category' | 'plant') {
   activePostPicker.value = activePostPicker.value === picker ? null : picker
+  if (picker === 'plant') postPlantSearch.value = ''
 }
 
 const selectedPostCategory = computed(() => {
@@ -152,6 +159,17 @@ const selectedPostCategory = computed(() => {
 const selectedPostPlantName = computed(() => {
   const plant = plants.value.find(p => p.slug === newPost.value.plantSlug)
   return plant ? getPlantDisplayName(plant, locale.value) : ''
+})
+
+const filteredPostPlants = computed(() => {
+  const query = postPlantSearch.value.trim().toLowerCase()
+  if (!query) return plants.value
+  return plants.value.filter((plant) => {
+    const displayName = getPlantDisplayName(plant, locale.value).toLowerCase()
+    return displayName.includes(query)
+      || plant.commonName.toLowerCase().includes(query)
+      || plant.slug.toLowerCase().includes(query)
+  })
 })
 
 function categoryName(slug: string) {
@@ -195,8 +213,24 @@ function requireAuth(callback: () => void) {
   callback()
 }
 
+function openCreateModal() {
+  createError.value = ''
+  uploadError.value = ''
+  showCreatePost.value = true
+}
+
+function closeCreateModal() {
+  showCreatePost.value = false
+  activePostPicker.value = null
+  createError.value = ''
+  uploadError.value = ''
+  postPlantSearch.value = ''
+}
+
 async function handleCreatePost() {
-  if (!newPost.value.content.trim()) return
+  if (!newPost.value.content.trim() || createSubmitting.value) return
+  createSubmitting.value = true
+  createError.value = ''
   try {
     const res = await postApi.createPost({
       content: newPost.value.content,
@@ -205,26 +239,47 @@ async function handleCreatePost() {
       categorySlug: newPost.value.categorySlug || null
     })
     if (res.code === 200) {
-      showCreatePost.value = false
+      closeCreateModal()
       newPost.value = { content: '', images: [], plantSlug: '', categorySlug: '' }
       page.value = 1
       fetchPosts(true)
+    } else {
+      createError.value = res.message || t('community.publish') + ' failed'
     }
-  } catch {}
+  } catch {
+    createError.value = locale.value === 'zh-CN' ? '发布失败，请稍后重试' : 'Publish failed. Please try again.'
+  } finally {
+    createSubmitting.value = false
+  }
 }
 
 async function handleUploadImage(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || uploadLoading.value) return
+  uploadError.value = ''
+  if (newPost.value.images.length >= 6) {
+    uploadError.value = locale.value === 'zh-CN' ? '最多上传 6 张图片' : 'You can upload up to 6 images.'
+    input.value = ''
+    return
+  }
   uploadLoading.value = true
   try {
+    const prepared = await prepareImageForUpload(file, { locale: locale.value })
     // 不手动设置 Content-Type：让浏览器自动生成带 boundary 的 multipart 头
-    const res = await uploadImage(file)
+    const res = await uploadImage(prepared.file)
     if (res.code === 200) {
       newPost.value.images.push(res.data)
+    } else {
+      uploadError.value = res.message || (locale.value === 'zh-CN' ? '上传失败' : 'Upload failed.')
     }
-  } catch {} finally {
+  } catch (err) {
+    uploadError.value = err instanceof Error
+      ? err.message
+      : locale.value === 'zh-CN' ? '上传失败，请稍后重试' : 'Upload failed. Please try again.'
+  } finally {
     uploadLoading.value = false
+    input.value = ''
   }
 }
 
@@ -314,6 +369,10 @@ onMounted(() => {
   window.addEventListener('resize', updateCategoryIndicator, { passive: true })
 })
 
+watch(showCreatePost, (open) => {
+  document.body.style.overflow = open ? 'hidden' : ''
+})
+
 onBeforeUpdate(() => {
   categoryButtonRefs.value = []
 })
@@ -322,6 +381,7 @@ watch([categoryFilter, locale], updateCategoryIndicator)
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateCategoryIndicator)
+  document.body.style.overflow = ''
 })
 </script>
 
@@ -339,7 +399,7 @@ onUnmounted(() => {
         <button v-if="searchInput" class="community__search-clear" @click="clearSearch">&times;</button>
         <button class="community__search-btn" @click="handleSearch">{{ t('community.search') }}</button>
       </div>
-      <button class="community__create-btn" @click="requireAuth(() => showCreatePost = true)">
+      <button class="community__create-btn" @click="requireAuth(openCreateModal)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
         {{ t('community.createPost') }}
       </button>
@@ -445,11 +505,12 @@ onUnmounted(() => {
     <!-- Create Post Modal -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="showCreatePost" class="auth-modal__overlay" @click.self="showCreatePost = false; activePostPicker = null">
+        <div v-if="showCreatePost" class="auth-modal__overlay" @click.self="closeCreateModal">
           <div class="create-modal">
-            <button class="auth-modal__close" @click="showCreatePost = false; activePostPicker = null">&times;</button>
+            <button class="auth-modal__close" @click="closeCreateModal">&times;</button>
             <h2>{{ t('community.createPost') }}</h2>
             <textarea v-model="newPost.content" :placeholder="t('community.contentPlaceholder')" rows="5"></textarea>
+            <p v-if="createError" class="create-modal__error">{{ createError }}</p>
             <div class="create-modal__row">
               <div class="create-modal__picker">
                 <button
@@ -487,9 +548,20 @@ onUnmounted(() => {
                 </button>
                 <Transition name="picker">
                   <div v-if="activePostPicker === 'plant'" class="create-modal__menu">
+                    <div class="create-modal__menu-search">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-3.8-3.8" />
+                      </svg>
+                      <input
+                        v-model="postPlantSearch"
+                        :placeholder="locale === 'zh-CN' ? '搜索植物...' : 'Search plants...'"
+                        @click.stop
+                      />
+                    </div>
                     <button class="create-modal__option" @click="setPostPlant('')">{{ t('community.selectPlant') }}</button>
                     <button
-                      v-for="p in plants"
+                      v-for="p in filteredPostPlants"
                       :key="p.slug"
                       class="create-modal__option"
                       :class="{ 'create-modal__option--active': newPost.plantSlug === p.slug }"
@@ -497,26 +569,31 @@ onUnmounted(() => {
                     >
                       {{ plantName(p) }}
                     </button>
+                    <div v-if="filteredPostPlants.length === 0" class="create-modal__empty">
+                      {{ locale === 'zh-CN' ? '没有匹配的植物' : 'No matching plants' }}
+                    </div>
                   </div>
                 </Transition>
               </div>
             </div>
             <div class="create-modal__media">
-              <label class="create-modal__upload-btn">
+              <label class="create-modal__upload-btn" :class="{ 'create-modal__upload-btn--disabled': uploadLoading || newPost.images.length >= 6 }">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                {{ t('community.uploadImage') }}
-                <input type="file" accept="image/*" @change="handleUploadImage" hidden />
+                {{ newPost.images.length >= 6 ? (locale === 'zh-CN' ? '已达上限' : 'Limit reached') : t('community.uploadImage') }}
+                <input type="file" accept="image/*" :disabled="uploadLoading || newPost.images.length >= 6" @change="handleUploadImage" hidden />
               </label>
               <span v-if="uploadLoading" class="create-modal__uploading">{{ t('community.uploading') }}</span>
+              <span v-else class="create-modal__hint">{{ newPost.images.length }}/6</span>
             </div>
+            <p v-if="uploadError" class="create-modal__error">{{ uploadError }}</p>
             <div v-if="newPost.images.length" class="create-modal__preview">
               <div v-for="(img, i) in newPost.images" :key="i" class="create-modal__preview-item">
                 <img :src="img" alt="preview" />
                 <button @click="newPost.images.splice(i, 1)">&times;</button>
               </div>
             </div>
-            <button class="create-modal__submit" :disabled="!newPost.content.trim()" @click="handleCreatePost">
-              {{ t('community.publish') }}
+            <button class="create-modal__submit" :disabled="!newPost.content.trim() || createSubmitting" @click="handleCreatePost">
+              {{ createSubmitting ? (locale === 'zh-CN' ? '发布中...' : 'Publishing...') : t('community.publish') }}
             </button>
           </div>
         </div>
@@ -1312,6 +1389,42 @@ onUnmounted(() => {
     backdrop-filter: blur(12px);
   }
 
+  &__menu-search {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.35rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid rgba(22, 163, 74, 0.14);
+    border-radius: 0.82rem;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 8px 18px rgba(20, 83, 45, 0.08);
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+      color: $color-leaf-600;
+      flex-shrink: 0;
+    }
+
+    input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: $color-text;
+      font: inherit;
+      font-size: 0.86rem;
+
+      &::placeholder {
+        color: #9ca3af;
+      }
+    }
+  }
+
   &__option {
     width: 100%;
     display: flex;
@@ -1345,6 +1458,13 @@ onUnmounted(() => {
     }
   }
 
+  &__empty {
+    padding: 0.85rem;
+    color: $color-text-muted;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
   &__media {
     display: flex;
     gap: 0.75rem;
@@ -1375,11 +1495,32 @@ onUnmounted(() => {
     }
 
     &:active { transform: translateY(0) scale(0.98); }
+
+    &--disabled {
+      opacity: 0.58;
+      pointer-events: none;
+    }
   }
 
   &__uploading {
     font-size: 0.8rem;
     color: $color-text-muted;
+  }
+
+  &__hint {
+    font-size: 0.78rem;
+    color: $color-text-muted;
+  }
+
+  &__error {
+    margin: 0.55rem 0 0;
+    padding: 0.58rem 0.75rem;
+    border: 1px solid rgba(239, 68, 68, 0.16);
+    border-radius: 0.85rem;
+    background: rgba(254, 242, 242, 0.86);
+    color: #b91c1c;
+    font-size: 0.82rem;
+    line-height: 1.45;
   }
 
   &__preview {

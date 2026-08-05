@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onBeforeUpdate, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getPlant } from '@/api/plantApi'
+import { getPlantDisplayDescription, getPlantDisplayName } from '@/utils/plantI18n'
 
 const { t, locale } = useI18n()
 const route = useRoute()
+const router = useRouter()
 
 interface CareGuide {
   id: number
@@ -193,6 +195,62 @@ function copy(zh: string, en: string) {
   return locale.value === 'zh-CN' ? zh : en
 }
 
+const valueCopy: Record<string, string> = {
+  草本: 'Herbaceous',
+  木本: 'Woody',
+  藤本: 'Vine',
+  肉质: 'Succulent',
+  多年生: 'Perennial',
+  一年生: 'Annual',
+  二年生: 'Biennial',
+  观叶: 'Foliage',
+  观花: 'Flowering',
+  观果: 'Fruiting',
+  无毒: 'Non-toxic',
+  微毒: 'Mildly toxic',
+  有毒: 'Toxic',
+  剧毒: 'Highly toxic',
+  缓慢: 'Slow',
+  中等: 'Moderate',
+  快速: 'Fast',
+  室内: 'Indoor',
+  室外: 'Outdoor',
+  阳台: 'Balcony',
+  客厅: 'Living room',
+  卧室: 'Bedroom',
+  书房: 'Study',
+  厨房: 'Kitchen',
+  玄关: 'Entryway',
+  窗台: 'Windowsill',
+  散射光: 'Indirect light',
+  明亮散射光: 'Bright indirect light',
+  全日照: 'Full sun',
+  半阴: 'Partial shade',
+}
+
+function displayValue(value: string | null | undefined) {
+  if (!value) return ''
+  if (locale.value === 'zh-CN') return value
+  if (valueCopy[value]) return valueCopy[value]
+  return value
+    .split(/([/、,，\s]+)/)
+    .map((part) => valueCopy[part] || part)
+    .join('')
+}
+
+function problemKeyLabel(key: string) {
+  if (locale.value === 'zh-CN') return problemKeyMap[key] || key
+  const map: Record<string, string> = {
+    yellowLeaves: 'Yellow leaves',
+    noBloom: 'No blooms',
+    leggy: 'Leggy growth',
+    drooping: 'Drooping',
+    mainTaboo: 'Main things to avoid',
+    beginnerTip: 'Beginner tip',
+  }
+  return map[key] || key
+}
+
 function toJsonList(items: Array<string | number | null | undefined>) {
   return JSON.stringify(items.map((item) => String(item).trim()).filter(Boolean))
 }
@@ -290,6 +348,43 @@ const growthLabels = computed<Record<string, string>>(() => ({
   fast: t('detail.fast'),
 }))
 
+const displayPlantName = computed(() => {
+  return plant.value ? getPlantDisplayName(plant.value, locale.value) : ''
+})
+
+const displayPlantDescription = computed(() => {
+  if (!plant.value) return ''
+  const fallback = getPlantDisplayDescription(plant.value, locale.value)
+  return locale.value === 'zh-CN' ? plant.value.description : fallback || plant.value.description
+})
+
+const careSummary = computed(() => {
+  if (!plant.value) return []
+  const p = plant.value
+  return [
+    {
+      icon: '☀',
+      label: t('detail.light'),
+      value: lightLevelMap.value[p.lightLevel]?.label || p.lightLevel || copy('未知', 'Unknown'),
+    },
+    {
+      icon: '💧',
+      label: t('detail.water'),
+      value: waterFreqMap.value[p.waterFrequency]?.label || p.waterFrequency || copy('未知', 'Unknown'),
+    },
+    {
+      icon: '🌡',
+      label: t('detail.temperature'),
+      value: p.tempMinCelsius && p.tempMaxCelsius ? `${p.tempMinCelsius}-${p.tempMaxCelsius}°C` : copy('查看环境', 'See environment'),
+    },
+    {
+      icon: '🐾',
+      label: t('detail.petSafe'),
+      value: p.isPetSafe ? copy('宠物友好', 'Pet safe') : copy('需谨慎摆放', 'Place with care'),
+    },
+  ]
+})
+
 async function fetchPlant() {
   const slug = route.params.slug as string
   loading.value = true
@@ -316,6 +411,14 @@ function handleResize() {
   updateTabIndicator()
 }
 
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/encyclopedia')
+  }
+}
+
 onBeforeUpdate(() => {
   tabButtonRefs.value = []
 })
@@ -337,9 +440,23 @@ watch(locale, () => updateTabIndicator())
 
 <template>
   <div class="detail" v-if="plant">
+    <button class="detail__back-btn" type="button" @click="goBack">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+      <span>{{ locale === 'zh-CN' ? '返回' : 'Back' }}</span>
+    </button>
+
     <div class="detail__hero">
       <div class="detail__hero-image">
-        <img v-if="plant.imageUrl" :src="plant.imageUrl" :alt="plant.commonName" class="detail__hero-img" />
+        <img
+          v-if="plant.imageUrl"
+          :src="plant.imageUrl"
+          :alt="displayPlantName"
+          class="detail__hero-img"
+          decoding="async"
+          fetchpriority="high"
+        />
         <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
           <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1.5 0 3-.3 4.3-.9C10 18 6 14 6 12c0-4.4 3.6-8 8-8 .7 0 1.4.1 2 .2C15 3.5 13.5 2 12 2z" />
         </svg>
@@ -348,7 +465,7 @@ watch(locale, () => updateTabIndicator())
         <span class="detail__badge" :style="{ background: difficultyColors[plant.difficulty] }">
           {{ plant.difficulty === 'easy' ? $t('encyclopedia.easy') : plant.difficulty === 'medium' ? $t('encyclopedia.medium') : $t('encyclopedia.hard') }}
         </span>
-        <h1 class="detail__name">{{ plant.commonName }}</h1>
+        <h1 class="detail__name">{{ displayPlantName }}</h1>
         <p class="detail__sci">{{ plant.scientificName }}</p>
         <p class="detail__family" v-if="plant.family">{{ plant.family }}{{ plant.genusName ? ' · ' + plant.genusName : '' }} · {{ plant.origin }}</p>
         <p class="detail__aliases" v-if="plant.aliases">{{ $t('detail.aliases') }}：{{ plant.aliases }}</p>
@@ -357,10 +474,10 @@ watch(locale, () => updateTabIndicator())
           <span v-if="plant.isOutdoor" class="detail__tag">{{ $t('detail.outdoor') }}</span>
           <span v-if="plant.isPetSafe" class="detail__tag detail__tag--green">{{ $t('detail.petSafe') }}</span>
           <span v-if="plant.isAirPurifying" class="detail__tag detail__tag--blue">{{ $t('detail.airPurifying') }}</span>
-          <span v-if="plant.plantType" class="detail__tag">{{ plant.plantType }}</span>
-          <span v-if="plant.growthCycle" class="detail__tag">{{ plant.growthCycle }}</span>
-          <span v-if="plant.ornamentalType" class="detail__tag">{{ plant.ornamentalType }}</span>
-          <span v-if="plant.toxicityLevel && plant.toxicityLevel !== '无毒'" class="detail__tag detail__tag--red">{{ plant.toxicityLevel }}</span>
+          <span v-if="plant.plantType" class="detail__tag">{{ displayValue(plant.plantType) }}</span>
+          <span v-if="plant.growthCycle" class="detail__tag">{{ displayValue(plant.growthCycle) }}</span>
+          <span v-if="plant.ornamentalType" class="detail__tag">{{ displayValue(plant.ornamentalType) }}</span>
+          <span v-if="plant.toxicityLevel && plant.toxicityLevel !== '无毒'" class="detail__tag detail__tag--red">{{ displayValue(plant.toxicityLevel) }}</span>
         </div>
       </div>
     </div>
@@ -379,10 +496,18 @@ watch(locale, () => updateTabIndicator())
       </button>
     </div>
 
+    <div class="detail__care-summary" aria-label="Care summary">
+      <div v-for="item in careSummary" :key="item.label" class="detail__care-summary-card">
+        <span class="detail__care-summary-icon">{{ item.icon }}</span>
+        <span class="detail__care-summary-label">{{ item.label }}</span>
+        <strong class="detail__care-summary-value">{{ item.value }}</strong>
+      </div>
+    </div>
+
     <div class="detail__content">
       <!-- 概述 -->
       <div v-if="activeTab === 'overview'" class="detail__overview">
-        <p class="detail__desc">{{ plant.description }}</p>
+        <p class="detail__desc">{{ displayPlantDescription }}</p>
         <div class="detail__specs">
           <div class="detail__spec">
             <span class="detail__spec-label">{{ $t('detail.growthRate') }}</span>
@@ -394,11 +519,11 @@ watch(locale, () => updateTabIndicator())
           </div>
           <div class="detail__spec">
             <span class="detail__spec-label">{{ $t('detail.fertilizer') }}</span>
-            <span class="detail__spec-value">{{ plant.fertilizerType }}</span>
+            <span class="detail__spec-value">{{ displayValue(plant.fertilizerType) }}</span>
           </div>
           <div class="detail__spec" v-if="plant.suitablePosition">
             <span class="detail__spec-label">{{ $t('detail.suitablePosition') }}</span>
-            <span class="detail__spec-value">{{ plant.suitablePosition }}</span>
+            <span class="detail__spec-value">{{ displayValue(plant.suitablePosition) }}</span>
           </div>
           <div class="detail__spec" v-if="plant.growthHabit">
             <span class="detail__spec-label">{{ $t('detail.growthHabit') }}</span>
@@ -635,7 +760,7 @@ watch(locale, () => updateTabIndicator())
         <div class="detail__info-grid">
           <div class="detail__info-item">
             <span class="detail__info-label">{{ $t('detail.toxicity') }}</span>
-            <span class="detail__info-value" :class="{ 'detail__toxic': plant.toxicityLevel && plant.toxicityLevel !== '无毒' }">{{ plant.toxicityLevel || '无毒' }}</span>
+            <span class="detail__info-value" :class="{ 'detail__toxic': plant.toxicityLevel && plant.toxicityLevel !== '无毒' }">{{ displayValue(plant.toxicityLevel || '无毒') }}</span>
           </div>
           <div class="detail__info-item" v-if="plant.toxicParts">
             <span class="detail__info-label">{{ $t('detail.toxicParts') }}</span>
@@ -657,7 +782,7 @@ watch(locale, () => updateTabIndicator())
         <template v-if="parseJson(plant.commonProblems)">
           <div class="detail__problems-list">
             <div class="detail__problem-item" v-for="(val, key) in parseJson(plant.commonProblems)" :key="key">
-              <h4>{{ problemKeyMap[String(key)] || key }}</h4>
+              <h4>{{ problemKeyLabel(String(key)) }}</h4>
               <p>{{ val }}</p>
             </div>
           </div>
@@ -756,6 +881,56 @@ watch(locale, () => updateTabIndicator())
       linear-gradient(90deg, rgba(22, 163, 74, 0.045) 1px, transparent 1px);
     background-size: 28px 28px;
     mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent);
+  }
+
+  &__back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+    padding: 0.55rem 0.95rem 0.55rem 0.75rem;
+    border: 1px solid rgba(34, 197, 94, 0.16);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.84);
+    color: $color-leaf-800;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow:
+      0 12px 26px rgba(20, 83, 45, 0.07),
+      inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(12px);
+    transition:
+      transform 0.24s $ease-out-expo,
+      color 0.24s ease,
+      border-color 0.24s ease,
+      box-shadow 0.24s ease;
+    animation: detailFadeUp 0.45s ease both;
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.24s $ease-out-expo;
+    }
+
+    &:hover {
+      color: $color-leaf-700;
+      border-color: rgba(34, 197, 94, 0.32);
+      transform: translateY(-2px);
+      box-shadow:
+        0 16px 32px rgba(20, 83, 45, 0.11),
+        inset 0 1px 0 rgba(255, 255, 255, 0.92);
+
+      svg {
+        transform: translateX(-2px);
+      }
+    }
+
+    &:active {
+      transform: translateY(0) scale(0.98);
+    }
   }
 
   &__hero {
@@ -950,6 +1125,60 @@ watch(locale, () => updateTabIndicator())
   }
   &__content {
     animation: detailFadeUp 0.55s 0.15s ease both;
+  }
+  &__care-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.9rem;
+    margin: -0.6rem 0 1.8rem;
+    animation: detailFadeUp 0.55s 0.12s ease both;
+  }
+  &__care-summary-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 5rem;
+    padding: 1rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 0.2rem;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(240, 253, 244, 0.84)),
+      radial-gradient(circle at 12% 16%, rgba(34, 197, 94, 0.12), transparent 45%);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 20px;
+    box-shadow: 0 16px 34px rgba(20, 83, 45, 0.07);
+    transition:
+      transform 0.28s $ease-out-expo,
+      box-shadow 0.28s ease;
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 22px 46px rgba(20, 83, 45, 0.11);
+    }
+  }
+  &__care-summary-icon {
+    grid-row: span 2;
+    width: 2.35rem;
+    height: 2.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background: rgba(34, 197, 94, 0.12);
+    color: $color-leaf-700;
+    font-size: 1.1rem;
+  }
+  &__care-summary-label {
+    font-size: 0.78rem;
+    color: $color-text-muted;
+  }
+  &__care-summary-value {
+    min-width: 0;
+    color: $color-leaf-800;
+    font-size: 0.92rem;
+    line-height: 1.35;
   }
   &__desc {
     max-width: 65ch;
@@ -1237,6 +1466,10 @@ watch(locale, () => updateTabIndicator())
   .detail {
     padding: 5.5rem 1rem 3rem;
 
+    &__back-btn {
+      margin-bottom: 0.85rem;
+    }
+
     &__hero {
       flex-direction: column;
       text-align: center;
@@ -1253,6 +1486,10 @@ watch(locale, () => updateTabIndicator())
       padding: 0.5rem;
       border-radius: 18px;
     }
+    &__tab-indicator {
+      top: 0.5rem;
+      height: calc(100% - 1rem);
+    }
     &__tab {
       min-height: 2.25rem;
       padding: 0.55rem 0.85rem;
@@ -1262,6 +1499,15 @@ watch(locale, () => updateTabIndicator())
     &__seasonal-cards { grid-template-columns: 1fr; }
     &__info-grid { grid-template-columns: 1fr; }
     &__care-grid { grid-template-columns: 1fr; gap: 1rem; }
+    &__care-summary {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.65rem;
+    }
+    &__care-summary-card {
+      min-height: 4.6rem;
+      padding: 0.85rem;
+      border-radius: 18px;
+    }
   }
 }
 </style>

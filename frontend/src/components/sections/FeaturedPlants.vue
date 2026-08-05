@@ -116,7 +116,9 @@ function plantDescription(plant: Plant) {
             :src="plant.imageUrl"
             :alt="plantName(plant)"
             class="featured__card-img"
-            loading="lazy"
+            :loading="i < 2 ? 'eager' : 'lazy'"
+            :fetchpriority="i < 2 ? 'high' : 'low'"
+            decoding="async"
           />
         </div>
 
