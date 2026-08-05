@@ -2,38 +2,25 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import request from '@/api/request'
+import { listCategories, listPlants } from '@/api/plantApi'
+import type { Category, Plant } from '@/types'
 
 const { t } = useI18n()
 
 const router = useRouter()
 const route = useRoute()
 
-interface Plant {
-  id: number
-  commonName: string
-  scientificName: string
-  slug: string
-  shortDescription: string
-  imageUrl: string
-  difficulty: string
-  lightLevel: string
-  waterFrequency: string
-}
-
-interface Category {
-  id: number
-  name: string
-  slug: string
-}
-
 const plants = ref<Plant[]>([])
 const categories = ref<Category[]>([])
 const loading = ref(true)
+const error = ref('')
 const searchQuery = ref('')
 const activeCategory = ref('')
 const activeDifficulty = ref('')
 const activeLight = ref('')
+const activeWater = ref('')
+const indoorOnly = ref(false)
+const petSafeOnly = ref(false)
 
 const difficultyLabels = computed<Record<string, string>>(() => ({
   easy: t('encyclopedia.easy'),
@@ -108,13 +95,16 @@ async function fetchPlants() {
   const seq = ++fetchSeq
   loading.value = true
   try {
-    const params: Record<string, string> = { page: '1', size: '50' }
+    const params: Record<string, string | boolean | number> = { page: 1, size: 50 }
     if (searchQuery.value) params.search = searchQuery.value
     if (activeLight.value) params.light = activeLight.value
+    if (activeWater.value) params.water = activeWater.value
     if (activeDifficulty.value) params.difficulty = activeDifficulty.value
     if (activeCategory.value) params.category = activeCategory.value
+    if (indoorOnly.value) params.indoor = true
+    if (petSafeOnly.value) params.petSafe = true
 
-    const res: any = await request.get('/plants', { params })
+    const res = await listPlants(params)
     if (seq !== fetchSeq) return // 已有更新的请求，丢弃本次慢响应
     plants.value = res.data?.records || []
   } catch {
@@ -125,6 +115,9 @@ async function fetchPlants() {
     }
     if (activeLight.value) {
       filtered = filtered.filter(p => p.lightLevel === activeLight.value)
+    }
+    if (activeWater.value) {
+      filtered = filtered.filter(p => p.waterFrequency === activeWater.value)
     }
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
@@ -141,7 +134,7 @@ async function fetchPlants() {
 
 async function fetchCategories() {
   try {
-    const res: any = await request.get('/categories')
+    const res = await listCategories()
     categories.value = res.data || []
   } catch {
     categories.value = [
@@ -164,6 +157,9 @@ function clearFilters() {
   activeCategory.value = ''
   activeDifficulty.value = ''
   activeLight.value = ''
+  activeWater.value = ''
+  indoorOnly.value = false
+  petSafeOnly.value = false
   router.replace({ query: {} })
 }
 
@@ -179,7 +175,7 @@ onMounted(() => {
 // 搜索防抖 300ms：避免每次按键立即请求（竞态保护在 fetchPlants 内部按 fetchSeq 丢弃慢响应）
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
-watch([searchQuery, activeDifficulty, activeLight, activeCategory], () => {
+watch([searchQuery, activeDifficulty, activeLight, activeWater, activeCategory, indoorOnly, petSafeOnly], () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(fetchPlants, 300)
 })
@@ -261,6 +257,33 @@ onUnmounted(() => {
               {{ lightLabels[l] || $t('encyclopedia.all') }}
             </button>
           </div>
+        </div>
+
+        <div class="encyclopedia__filter-group">
+          <h3 class="encyclopedia__filter-title">{{ $t('detail.water') }}</h3>
+          <div class="encyclopedia__filter-options">
+            <button
+              v-for="w in ['', 'rarely', 'weekly', 'biweekly', 'frequent']"
+              :key="w"
+              class="encyclopedia__filter-btn"
+              :class="{ 'encyclopedia__filter-btn--active': activeWater === w }"
+              @click="activeWater = w"
+            >
+              {{ waterLabels[w] || $t('encyclopedia.all') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="encyclopedia__filter-group">
+          <h3 class="encyclopedia__filter-title">匹配</h3>
+          <label class="encyclopedia__check">
+            <input v-model="indoorOnly" type="checkbox" />
+            <span>{{ $t('detail.indoor') }}</span>
+          </label>
+          <label class="encyclopedia__check">
+            <input v-model="petSafeOnly" type="checkbox" />
+            <span>{{ $t('detail.petSafe') }}</span>
+          </label>
         </div>
 
         <button class="encyclopedia__clear-btn" @click="clearFilters">
@@ -396,54 +419,123 @@ onUnmounted(() => {
     font-size: 0.85rem;
     font-weight: 600;
     color: $color-text;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0;
     margin-bottom: 0.75rem;
   }
 
   &__filter-options {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.55rem;
   }
 
   &__filter-btn {
-    padding: 0.4rem 0.8rem;
-    border: 1px solid $color-border;
-    border-radius: 20px;
-    background: white;
+    position: relative;
+    overflow: hidden;
+    padding: 0.48rem 0.95rem;
+    border: 1px solid rgba(22, 163, 74, 0.16);
+    border-radius: 999px;
+    background: linear-gradient(180deg, #ffffff, rgba(240, 253, 244, 0.78));
     font-size: 0.8rem;
-    color: $color-text;
+    font-weight: 600;
+    color: $color-leaf-900;
     cursor: pointer;
-    transition: all 0.2s ease;
-    text-transform: capitalize;
+    transition:
+      border-color 0.2s ease,
+      color 0.2s ease,
+      background-color 0.2s ease,
+      box-shadow 0.2s ease,
+      transform 0.2s ease;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      0 3px 10px rgba(21, 128, 61, 0.05);
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 25% 20%, rgba(187, 247, 208, 0.72), transparent 34%);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      pointer-events: none;
+    }
 
     &:hover {
-      border-color: $color-leaf-400;
       color: $color-leaf-600;
+      border-color: rgba(34, 197, 94, 0.34);
+      transform: translateY(-2px);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        0 8px 18px rgba(21, 128, 61, 0.12);
+
+      &::before {
+        opacity: 1;
+      }
+    }
+
+    &:active {
+      transform: translateY(0) scale(0.98);
     }
 
     &--active {
-      background: $color-leaf-600;
+      background: linear-gradient(135deg, $color-leaf-700, $color-leaf-500 58%, #22c55e);
       border-color: $color-leaf-600;
       color: white;
+      box-shadow:
+        0 10px 22px rgba(22, 163, 74, 0.26),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+
+      &:hover {
+        color: white;
+        transform: translateY(-2px) scale(1.02);
+      }
     }
   }
 
   &__clear-btn {
     width: 100%;
-    padding: 0.5rem;
-    border: 1px solid $color-border;
-    border-radius: 8px;
-    background: white;
+    padding: 0.62rem 0.8rem;
+    border: 1px solid rgba(22, 163, 74, 0.16);
+    border-radius: 999px;
+    background: linear-gradient(180deg, white, rgba(240, 253, 244, 0.75));
     font-size: 0.85rem;
-    color: $color-text-muted;
+    font-weight: 600;
+    color: $color-leaf-700;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.22s ease;
 
     &:hover {
-      border-color: $color-leaf-400;
-      color: $color-leaf-600;
+      border-color: rgba(34, 197, 94, 0.38);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 18px rgba(21, 128, 61, 0.1);
+    }
+
+    &:active { transform: translateY(0) scale(0.98); }
+  }
+
+  &__check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    color: $color-text;
+    cursor: pointer;
+
+    input {
+      width: 15px;
+      height: 15px;
+      accent-color: $color-leaf-600;
+      cursor: pointer;
+    }
+
+    span {
+      transition: color 0.2s ease, transform 0.2s ease;
+    }
+
+    &:hover span {
+      color: $color-leaf-700;
+      transform: translateX(2px);
     }
   }
 

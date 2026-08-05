@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import request from '@/api/request'
+import { getPlant } from '@/api/plantApi'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -170,10 +170,10 @@ async function fetchPlant() {
   error.value = false
   plant.value = null
   try {
-    const res: any = await request.get(`/plants/${slug}`)
+    const res = await getPlant(slug)
     // 后端对不存在的 slug 返回 HTTP 200 + code 404，必须检查 code
     if (res.code === 200 && res.data) {
-      plant.value = res.data
+      plant.value = res.data as unknown as Plant
     } else {
       error.value = true
     }

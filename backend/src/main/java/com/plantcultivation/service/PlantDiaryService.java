@@ -49,6 +49,27 @@ public class PlantDiaryService {
     }
 
     @Transactional
+    public PlantDiary updateDiary(Long id, String account, PlantDiary changes) {
+        PlantDiary diary = getDiary(id, account);
+        if (diary == null) {
+            throw new BusinessException("日记不存在", 404);
+        }
+        diary.setTitle(changes.getTitle());
+        diary.setContent(changes.getContent());
+        diary.setPlantSlug(changes.getPlantSlug());
+        diary.setPlantName(changes.getPlantName());
+        diary.setImages(changes.getImages());
+        diary.setWeather(changes.getWeather());
+        diary.setMood(changes.getMood());
+        diary.setHeightCm(changes.getHeightCm());
+        diary.setLeafCount(changes.getLeafCount());
+        diary.setGrowthStage(changes.getGrowthStage());
+        diaryMapper.updateById(diary);
+        enrichDiary(diary);
+        return diary;
+    }
+
+    @Transactional
     public void deleteDiary(Long id, String account) {
         PlantDiary diary = diaryMapper.selectById(id);
         if (diary == null || !diary.getUserAccount().equals(account)) {

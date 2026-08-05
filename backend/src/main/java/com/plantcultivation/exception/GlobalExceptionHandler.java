@@ -2,8 +2,12 @@ package com.plantcultivation.exception;
 
 import com.plantcultivation.vo.ResultVO;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -40,6 +44,29 @@ public class GlobalExceptionHandler {
         // 语义是客户端错误（413），不能落到兜底 500
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(ResultVO.error(413, "文件大小不能超过10MB"));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ResultVO<Void>> handleValidation(MethodArgumentNotValidException e) {
+        FieldError fieldError = e.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .orElse(null);
+        String message = fieldError != null ? fieldError.getDefaultMessage() : "参数校验失败";
+        return ResponseEntity.badRequest().body(ResultVO.error(400, message));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ResultVO<Void>> handleConstraintViolation(ConstraintViolationException e) {
+        String message = e.getConstraintViolations().stream()
+                .findFirst()
+                .map(v -> v.getMessage())
+                .orElse("参数校验失败");
+        return ResponseEntity.badRequest().body(ResultVO.error(400, message));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ResultVO<Void>> handleUnreadable(HttpMessageNotReadableException e) {
+        return ResponseEntity.badRequest().body(ResultVO.error(400, "请求体格式不正确"));
     }
 
     @ExceptionHandler(Exception.class)

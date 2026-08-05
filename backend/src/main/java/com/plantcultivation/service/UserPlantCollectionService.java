@@ -2,6 +2,7 @@ package com.plantcultivation.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.plantcultivation.dto.UpdateCollectionRequest;
 import com.plantcultivation.entity.Plant;
 import com.plantcultivation.entity.UserPlantCollection;
 import com.plantcultivation.exception.BusinessException;
@@ -87,6 +88,35 @@ public class UserPlantCollectionService {
         collectionMapper.delete(qw);
     }
 
+    @Transactional
+    public UserPlantCollection updateCollect(Long userId, Long plantId, UpdateCollectionRequest request) {
+        QueryWrapper<UserPlantCollection> qw = new QueryWrapper<>();
+        qw.eq("user_id", userId).eq("plant_id", plantId);
+        UserPlantCollection collection = collectionMapper.selectOne(qw);
+        if (collection == null) {
+            throw new BusinessException("尚未收藏该植物", 404);
+        }
+        if (request.nickname() != null) {
+            collection.setNickname(request.nickname());
+        }
+        if (request.location() != null) {
+            collection.setLocation(request.location());
+        }
+        if (request.notes() != null) {
+            collection.setNotes(request.notes());
+        }
+        if (request.waterIntervalDays() != null) {
+            collection.setWaterIntervalDays(request.waterIntervalDays());
+            LocalDateTime base = collection.getLastWateredAt() != null
+                    ? collection.getLastWateredAt()
+                    : LocalDateTime.now();
+            collection.setNextWaterAt(base.plusDays(request.waterIntervalDays()));
+        }
+        collectionMapper.updateById(collection);
+        enrichCollection(collection);
+        return collection;
+    }
+
     /** 标记浇水：刷新 last_watered_at 并按间隔推算 next_water_at。 */
     @Transactional
     public void markWatered(Long userId, Long plantId) {
@@ -102,5 +132,14 @@ public class UserPlantCollectionService {
                 ? collection.getWaterIntervalDays() : DEFAULT_WATER_INTERVAL_DAYS;
         collection.setNextWaterAt(now.plusDays(days));
         collectionMapper.updateById(collection);
+    }
+
+    private void enrichCollection(UserPlantCollection collection) {
+        Plant plant = plantMapper.selectById(collection.getPlantId());
+        if (plant != null) {
+            collection.setPlantName(plant.getCommonName());
+            collection.setPlantImage(plant.getImageUrl());
+            collection.setPlantSlug(plant.getSlug());
+        }
     }
 }

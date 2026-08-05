@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import request from '@/api/request'
+import { listFeaturedPlants } from '@/api/plantApi'
 const router = useRouter()
 const sectionVisible = ref(false)
 const sectionRef = ref<HTMLElement>()
@@ -53,8 +53,8 @@ onMounted(async () => {
   if (sectionRef.value) observer.observe(sectionRef.value)
 
   try {
-    const res: any = await request.get('/plants/featured?limit=6')
-    plants.value = res.data || []
+    const res = await listFeaturedPlants(6)
+    plants.value = (res.data || []) as Plant[]
   } catch {
     plants.value = [
       { id: 1, commonName: '龟背竹', scientificName: 'Monstera deliciosa', slug: 'monstera-deliciosa', shortDescription: '标志性裂叶热带植物，非常适合营造丛林氛围', imageUrl: '/images/plants/monstera.jpg', difficulty: 'easy', lightLevel: 'medium', waterFrequency: 'weekly' },

@@ -1,5 +1,9 @@
 package com.plantcultivation.controller;
 
+import com.plantcultivation.dto.ChangePasswordRequest;
+import com.plantcultivation.dto.LoginRequest;
+import com.plantcultivation.dto.ProfileUpdateRequest;
+import com.plantcultivation.dto.RegisterRequest;
 import com.plantcultivation.entity.User;
 import com.plantcultivation.exception.BusinessException;
 import com.plantcultivation.service.AuthService;
@@ -7,6 +11,7 @@ import com.plantcultivation.util.LoginRateLimiter;
 import com.plantcultivation.util.SecurityUtil;
 import com.plantcultivation.vo.ResultVO;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,20 +26,13 @@ public class AuthController {
     private final LoginRateLimiter rateLimiter;
 
     @PostMapping("/register")
-    public ResultVO<User> register(@RequestBody Map<String, String> body, HttpServletRequest request) {
-        String username = body.get("username");
-        String account = body.get("account");
-        String password = body.get("password");
-        if (username == null || account == null || password == null) {
-            return ResultVO.error(400, "参数不完整");
-        }
-        // 注册按 IP 限流，防止批量灌库
+    public ResultVO<User> register(@Valid @RequestBody RegisterRequest body, HttpServletRequest request) {
         String ipKey = "ip:" + clientIp(request);
         if (!rateLimiter.isAllowed(ipKey)) {
             throw new BusinessException("操作过于频繁，请10分钟后再试", 429);
         }
         try {
-            return ResultVO.success(authService.register(username, account, password));
+            return ResultVO.success(authService.register(body.username(), body.account(), body.password()));
         } catch (BusinessException e) {
             rateLimiter.recordFailure(ipKey);
             throw e;
@@ -42,21 +40,16 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResultVO<Map<String, Object>> login(@RequestBody Map<String, String> body, HttpServletRequest request) {
-        String account = body.get("account");
-        String password = body.get("password");
-        if (account == null || password == null) {
-            return ResultVO.error(400, "参数不完整");
-        }
-        // 账号 + IP 双维度限流，防暴力破解
-        String accountKey = "account:" + account;
+    public ResultVO<Map<String, Object>> login(@Valid @RequestBody LoginRequest body, HttpServletRequest request) {
+        String accountKey = "account:" + body.account();
         String ipKey = "ip:" + clientIp(request);
         if (!rateLimiter.isAllowed(accountKey) || !rateLimiter.isAllowed(ipKey)) {
             throw new BusinessException("尝试次数过多，请10分钟后再试", 429);
         }
         try {
-            Map<String, Object> result = authService.login(account, password);
+            Map<String, Object> result = authService.login(body.account(), body.password());
             rateLimiter.clear(accountKey);
+            rateLimiter.clear(ipKey);
             return ResultVO.success(result);
         } catch (BusinessException e) {
             rateLimiter.recordFailure(accountKey);
@@ -65,10 +58,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * 取客户端 IP：仅当请求来自本机/内网代理（Nginx 反代）时才信任 X-Forwarded-For，
-     * 防止直连 8080 时伪造该头绕过限流。
-     */
     private String clientIp(HttpServletRequest request) {
         String remote = request.getRemoteAddr();
         boolean fromLocalProxy = remote != null
@@ -98,22 +87,22 @@ public class AuthController {
     }
 
     @PutMapping("/profile")
-    public ResultVO<User> updateProfile(@RequestBody Map<String, String> body) {
+    public ResultVO<User> updateProfile(@Valid @RequestBody ProfileUpdateRequest body) {
         String account = SecurityUtil.currentAccount();
         if (account == null) {
             throw new BusinessException("未登录", 401);
         }
-        User user = authService.updateProfile(account, body.get("username"), body.get("bio"), body.get("avatarUrl"));
+        User user = authService.updateProfile(account, body.username(), body.bio(), body.avatarUrl());
         return ResultVO.success(user);
     }
 
     @PutMapping("/password")
-    public ResultVO<Void> changePassword(@RequestBody Map<String, String> body) {
+    public ResultVO<Void> changePassword(@Valid @RequestBody ChangePasswordRequest body) {
         String account = SecurityUtil.currentAccount();
         if (account == null) {
             throw new BusinessException("未登录", 401);
         }
-        authService.changePassword(account, body.get("oldPassword"), body.get("newPassword"));
+        authService.changePassword(account, body.oldPassword(), body.newPassword());
         return ResultVO.success();
     }
 }

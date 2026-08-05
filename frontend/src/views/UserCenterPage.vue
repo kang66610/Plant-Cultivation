@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import request from '@/api/request'
+import { listCollections, markWatered, removeCollection, updateCollection } from '@/api/collectionApi'
+import { uploadImage } from '@/api/uploadApi'
 import type { PlantCollection } from '@/types'
 
 const { t } = useI18n()
@@ -27,11 +28,36 @@ const avatarUploadError = ref('')
 const showCollections = ref(false)
 const collectionsLoading = ref(false)
 const collections = ref<PlantCollection[]>([])
+const editingCollection = ref<number | null>(null)
+const intervalDraft = ref<number>(7)
+
+const sortedCollections = computed(() => {
+  return [...collections.value].sort((a, b) => dateMs(a.nextWaterAt) - dateMs(b.nextWaterAt))
+})
+
+const careStats = computed(() => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  let overdue = 0
+  let dueToday = 0
+  let upcoming = 0
+
+  for (const c of collections.value) {
+    if (!c.nextWaterAt) continue
+    const due = new Date(c.nextWaterAt)
+    if (due < today) overdue++
+    else if (due < tomorrow) dueToday++
+    else upcoming++
+  }
+  return { overdue, dueToday, upcoming }
+})
 
 async function loadCollections() {
   collectionsLoading.value = true
   try {
-    const res: any = await request.get('/collections')
+    const res = await listCollections()
     collections.value = res.data?.records || []
   } catch {
     // 请求失败保持空列表，不中断页面
@@ -49,7 +75,7 @@ function toggleCollections() {
 
 async function waterPlant(c: PlantCollection) {
   try {
-    await request.post(`/collections/${c.plantId}/water`)
+    await markWatered(c.plantId)
     await loadCollections()
   } catch {
     // 静默失败，避免打断用户
@@ -58,7 +84,7 @@ async function waterPlant(c: PlantCollection) {
 
 async function uncollect(c: PlantCollection) {
   try {
-    await request.delete(`/collections/${c.plantId}`)
+    await removeCollection(c.plantId)
     collections.value = collections.value.filter((x) => x.id !== c.id)
   } catch {
     // 静默失败，避免打断用户
@@ -69,6 +95,53 @@ function formatDate(iso: string) {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function dateMs(iso?: string) {
+  if (!iso) return Number.MAX_SAFE_INTEGER
+  const ms = new Date(iso).getTime()
+  return Number.isNaN(ms) ? Number.MAX_SAFE_INTEGER : ms
+}
+
+function daysUntil(iso?: string) {
+  if (!iso) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(iso)
+  due.setHours(0, 0, 0, 0)
+  if (Number.isNaN(due.getTime())) return null
+  return Math.round((due.getTime() - today.getTime()) / 86400000)
+}
+
+function waterStatus(c: PlantCollection) {
+  const days = daysUntil(c.nextWaterAt)
+  if (days === null) return 'not-started'
+  if (days < 0) return 'overdue'
+  if (days === 0) return 'today'
+  return 'upcoming'
+}
+
+function waterStatusText(c: PlantCollection) {
+  const days = daysUntil(c.nextWaterAt)
+  if (days === null) return '未浇水'
+  if (days < 0) return `逾期 ${Math.abs(days)} 天`
+  if (days === 0) return '今天'
+  return `${days} 天后`
+}
+
+function startIntervalEdit(c: PlantCollection) {
+  editingCollection.value = c.id
+  intervalDraft.value = c.waterIntervalDays || 7
+}
+
+async function saveInterval(c: PlantCollection) {
+  try {
+    const res = await updateCollection(c.plantId, { waterIntervalDays: intervalDraft.value })
+    if (res.code === 200) {
+      collections.value = collections.value.map((item) => item.id === c.id ? res.data : item)
+      editingCollection.value = null
+    }
+  } catch {}
 }
 
 onMounted(() => {
@@ -105,11 +178,9 @@ async function handleAvatarUpload(e: Event) {
   if (!file) return
   avatarUploading.value = true
   avatarUploadError.value = ''
-  const formData = new FormData()
-  formData.append('file', file)
   try {
     // 不手动设置 Content-Type：让浏览器自动生成带 boundary 的 multipart 头
-    const res: any = await request.post('/upload/image', formData)
+    const res = await uploadImage(file)
     if (res.code === 200) {
       const avatarUrl = res.data
       const err = await auth.updateProfile(auth.user!.username, auth.user!.bio || '', avatarUrl)
@@ -245,8 +316,19 @@ function handleLogout() {
           <div v-if="showCollections" class="user-center__collections">
             <p v-if="collectionsLoading" class="user-center__empty">{{ t('community.collectionsLoading') }}</p>
             <p v-else-if="collections.length === 0" class="user-center__empty">{{ t('community.emptyCollections') }}</p>
-            <div v-else class="user-center__collection-item" v-for="c in collections" :key="c.id">
-              <img v-if="c.plantImage" :src="c.plantImage" class="user-center__collection-img" alt="" />
+            <div v-else class="user-center__care-stats">
+              <div class="user-center__care-stat user-center__care-stat--overdue">
+                <strong>{{ careStats.overdue }}</strong><span>逾期</span>
+              </div>
+              <div class="user-center__care-stat user-center__care-stat--today">
+                <strong>{{ careStats.dueToday }}</strong><span>今日</span>
+              </div>
+              <div class="user-center__care-stat">
+                <strong>{{ careStats.upcoming }}</strong><span>未来</span>
+              </div>
+            </div>
+            <div v-if="!collectionsLoading && collections.length > 0" class="user-center__collection-item" v-for="c in sortedCollections" :key="c.id">
+              <img v-if="c.plantImage" :src="c.plantImage" class="user-center__collection-img" alt="" loading="lazy" />
               <div v-else class="user-center__collection-img user-center__collection-img--placeholder">🌿</div>
               <div class="user-center__collection-info">
                 <p class="user-center__collection-name">{{ c.plantName || c.plantSlug }}</p>
@@ -255,9 +337,20 @@ function handleLogout() {
                   {{ t('community.nextWater') }}：{{ formatDate(c.nextWaterAt) }}
                 </p>
                 <p v-else class="user-center__collection-meta">{{ t('community.notWateredYet') }}</p>
+                <p class="user-center__collection-meta">
+                  <span class="user-center__water-status" :class="`user-center__water-status--${waterStatus(c)}`">
+                    {{ waterStatusText(c) }}
+                  </span>
+                </p>
+                <div v-if="editingCollection === c.id" class="user-center__interval-edit">
+                  <input v-model.number="intervalDraft" type="number" min="1" max="365" />
+                  <button @click="saveInterval(c)">保存</button>
+                  <button @click="editingCollection = null">取消</button>
+                </div>
               </div>
               <div class="user-center__collection-actions">
                 <button class="user-center__collection-btn" @click="waterPlant(c)">{{ t('community.markWatered') }}</button>
+                <button class="user-center__collection-btn" @click="startIntervalEdit(c)">周期</button>
                 <button class="user-center__collection-btn user-center__collection-btn--danger" @click="uncollect(c)">{{ t('community.uncollect') }}</button>
               </div>
             </div>
@@ -484,6 +577,46 @@ function handleLogout() {
     padding-top: 0.5rem;
   }
 
+  &__care-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  &__care-stat {
+    padding: 0.65rem;
+    border: 1px solid rgba(22, 163, 74, 0.16);
+    border-radius: 0.5rem;
+    background: $color-leaf-50;
+    text-align: center;
+
+    strong {
+      display: block;
+      color: $color-leaf-700;
+      font-size: 1.15rem;
+    }
+
+    span {
+      color: $color-text-muted;
+      font-size: 0.75rem;
+    }
+
+    &--overdue {
+      border-color: rgba(239, 68, 68, 0.22);
+      background: #fef2f2;
+
+      strong { color: #dc2626; }
+    }
+
+    &--today {
+      border-color: rgba(245, 158, 11, 0.28);
+      background: #fffbeb;
+
+      strong { color: #b45309; }
+    }
+  }
+
   &__empty {
     text-align: center;
     color: $color-text-muted;
@@ -535,6 +668,48 @@ function handleLogout() {
     font-size: 0.75rem;
     color: $color-text-muted;
     margin-top: 0.15rem;
+  }
+
+  &__water-status {
+    display: inline-flex;
+    margin-left: 0.35rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background: $color-leaf-50;
+    color: $color-leaf-700;
+    font-weight: 700;
+
+    &--overdue {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+
+    &--today {
+      background: #fffbeb;
+      color: #b45309;
+    }
+  }
+
+  &__interval-edit {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.45rem;
+
+    input {
+      width: 70px;
+      padding: 0.3rem 0.45rem;
+      border: 1px solid var(--color-border);
+      border-radius: 0.35rem;
+    }
+
+    button {
+      padding: 0.3rem 0.5rem;
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      border-radius: 0.35rem;
+      background: white;
+      color: $color-leaf-700;
+      cursor: pointer;
+    }
   }
 
   &__collection-actions {

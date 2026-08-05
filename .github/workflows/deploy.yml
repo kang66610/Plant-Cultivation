@@ -71,6 +71,8 @@ jobs:
     needs: [ backend, frontend ]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -98,6 +100,14 @@ jobs:
           fi
           chmod 600 /tmp/deploy_key
           SSH_OPTS="-i /tmp/deploy_key -p $PORT -o StrictHostKeyChecking=no"
+          ssh $SSH_OPTS "$USER@$HOST" 'mkdir -p /www/wwwroot/plant-cultivation/scripts'
+          rsync -az -e "ssh $SSH_OPTS" \
+            scripts/deploy.sh \
+            "$USER@$HOST:/www/wwwroot/plant-cultivation/deploy.sh"
+          rsync -az -e "ssh $SSH_OPTS" \
+            scripts/smoke-test.sh \
+            "$USER@$HOST:/www/wwwroot/plant-cultivation/scripts/smoke-test.sh"
+          ssh $SSH_OPTS "$USER@$HOST" 'chmod +x /www/wwwroot/plant-cultivation/deploy.sh /www/wwwroot/plant-cultivation/scripts/smoke-test.sh'
           # 清理残留目录，防止历史 scp 嵌套（frontend-new/frontend-dist）
           ssh $SSH_OPTS "$USER@$HOST" 'rm -rf /www/wwwroot/plant-cultivation/frontend/frontend-new'
           # 前端（后台）+ 后端（前台）并行 rsync 上传
@@ -118,3 +128,9 @@ jobs:
         run: |
           ssh -i /tmp/deploy_key -p "$PORT" -o StrictHostKeyChecking=no \
             "$USER@$HOST" 'bash /www/wwwroot/plant-cultivation/deploy.sh'
+
+      - name: Verify public health endpoint
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          bash scripts/smoke-test.sh "http://$HOST"

@@ -4,10 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.plantcultivation.entity.CareGuide;
-import com.plantcultivation.entity.Category;
 import com.plantcultivation.entity.Plant;
 import com.plantcultivation.mapper.CareGuideMapper;
-import com.plantcultivation.mapper.CategoryMapper;
 import com.plantcultivation.mapper.PlantMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,13 +18,16 @@ public class PlantService extends ServiceImpl<PlantMapper, Plant> {
 
     private final PlantMapper plantMapper;
     private final CareGuideMapper careGuideMapper;
-    private final CategoryMapper categoryMapper;
 
     public Page<Plant> listPlants(String search, String category, String light,
-                                   String water, String difficulty, Boolean indoor,
-                                   Boolean petSafe, int page, int size) {
-        QueryWrapper<Plant> wrapper = new QueryWrapper<>();
+                                  String water, String difficulty, Boolean indoor,
+                                  Boolean petSafe, int page, int size) {
+        if (category != null && !category.isBlank()) {
+            return plantMapper.selectPageByCategorySlug(new Page<>(page, size),
+                    category, search, light, water, difficulty, indoor, petSafe);
+        }
 
+        QueryWrapper<Plant> wrapper = new QueryWrapper<>();
         if (search != null && !search.isBlank()) {
             wrapper.and(w -> w.like("common_name", search)
                     .or().like("scientific_name", search));
@@ -46,23 +47,8 @@ public class PlantService extends ServiceImpl<PlantMapper, Plant> {
         if (petSafe != null) {
             wrapper.eq("is_pet_safe", petSafe);
         }
-
-        if (category != null && !category.isBlank()) {
-            QueryWrapper<Category> catWrapper = new QueryWrapper<>();
-            catWrapper.eq("slug", category);
-            Category cat = categoryMapper.selectOne(catWrapper);
-            if (cat == null) {
-                // 分类不存在时返回空结果，避免"过滤条件被静默丢弃返回全量"的误导
-                return new Page<>(page, size);
-            }
-            wrapper.inSql("id",
-                "SELECT plant_id FROM plant_category WHERE category_id = " + cat.getId());
-        }
-
         wrapper.orderByAsc("common_name");
-
-        Page<Plant> result = plantMapper.selectPage(new Page<>(page, size), wrapper);
-        return result;
+        return plantMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     public Plant getPlantBySlug(String slug) {
@@ -91,18 +77,11 @@ public class PlantService extends ServiceImpl<PlantMapper, Plant> {
         if (keyword == null || keyword.isBlank()) {
             return List.of();
         }
-        // 自然语言模式：用户输入含 BOOLEAN MODE 运算符（" + - * @ 等）时不会抛 SQL 语法错误
         return plantMapper.naturalSearch(keyword, limit);
     }
 
     public List<Plant> getPlantsByCategory(String categorySlug) {
-        QueryWrapper<Category> catWrapper = new QueryWrapper<>();
-        catWrapper.eq("slug", categorySlug);
-        Category category = categoryMapper.selectOne(catWrapper);
-        if (category == null) {
-            return List.of();
-        }
-        return plantMapper.selectByCategoryId(category.getId());
+        return plantMapper.selectByCategorySlug(categorySlug);
     }
 
     public List<CareGuide> getCareGuides(Long plantId, String season) {

@@ -3,34 +3,20 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { AuthModal } from '@/components/common'
-import request from '@/api/request'
+import * as diaryApi from '@/api/diaryApi'
+import { uploadImage as uploadImageApi } from '@/api/uploadApi'
+import type { Diary } from '@/types'
 
 const { t } = useI18n()
 const auth = useAuthStore()
-
-interface Diary {
-  id: number
-  userAccount: string
-  plantSlug: string
-  plantName: string
-  title: string
-  content: string
-  images: string
-  weather: string
-  mood: string
-  heightCm: number | null
-  leafCount: number | null
-  growthStage: string
-  createdAt: string
-  username: string
-  avatarUrl: string
-}
 
 const diaries = ref<Diary[]>([])
 const loading = ref(false)
 const showModal = ref(false)
 const submitting = ref(false)
 const filterPlant = ref('')
+const editingId = ref<number | null>(null)
+const selectedDiary = ref<Diary | null>(null)
 
 const newDiary = ref({
   title: '',
@@ -81,7 +67,7 @@ function openAuth(mode: 'login' | 'register') {
 
 // Plant filter
 const plantNames = computed(() => {
-  const names = new Set(diaries.value.map(d => d.plantName).filter(Boolean))
+  const names = new Set(diaries.value.map(d => d.plantName).filter((name): name is string => !!name))
   return Array.from(names)
 })
 
@@ -117,9 +103,7 @@ async function loadDiaries() {
   if (!auth.isLoggedIn) return
   loading.value = true
   try {
-    const res: any = await request.get('/diaries/my', {
-      params: { page: 1, size: 200 },
-    })
+    const res = await diaryApi.listMyDiaries({ page: 1, size: 200 })
     if (res.code === 200) {
       diaries.value = res.data.records
     }
@@ -132,7 +116,7 @@ async function submitDiary() {
   if (!newDiary.value.title.trim()) return
   submitting.value = true
   try {
-    const payload: any = {
+    const payload: diaryApi.DiaryPayload = {
       title: newDiary.value.title,
       content: newDiary.value.content,
       plantName: newDiary.value.plantName,
@@ -144,9 +128,15 @@ async function submitDiary() {
       growthStage: newDiary.value.growthStage,
       images: JSON.stringify(newDiary.value.images),
     }
-    const res: any = await request.post('/diaries', payload)
+    const res = editingId.value
+      ? await diaryApi.updateDiary(editingId.value, payload)
+      : await diaryApi.createDiary(payload)
     if (res.code === 200) {
-      diaries.value.unshift(res.data)
+      if (editingId.value) {
+        diaries.value = diaries.value.map((d) => d.id === editingId.value ? res.data : d)
+      } else {
+        diaries.value.unshift(res.data)
+      }
       showModal.value = false
       resetForm()
     }
@@ -158,7 +148,7 @@ async function submitDiary() {
 async function deleteDiary(id: number) {
   if (!confirm(t('diary.confirmDelete'))) return
   try {
-    const res: any = await request.delete(`/diaries/${id}`)
+    const res = await diaryApi.deleteDiary(id)
     // 仅在后端确认成功后移除本地条目
     if (res.code === 200) {
       diaries.value = diaries.value.filter(d => d.id !== id)
@@ -170,11 +160,9 @@ async function uploadImage(event: Event) {
   const input = event.target as HTMLInputElement
   if (!input.files?.length) return
   const file = input.files[0]
-  const formData = new FormData()
-  formData.append('file', file)
   try {
     // 不手动设置 Content-Type：让浏览器自动生成带 boundary 的 multipart 头
-    const res: any = await request.post('/upload/image', formData)
+    const res = await uploadImageApi(file)
     if (res.code === 200) {
       newDiary.value.images.push(res.data)
     }
@@ -188,6 +176,32 @@ function removeImage(index: number) {
 
 function resetForm() {
   newDiary.value = { title: '', content: '', plantName: '', weather: '', mood: '', heightCm: null, leafCount: null, growthStage: '', images: [] }
+  editingId.value = null
+}
+
+function editDiary(entry: Diary) {
+  editingId.value = entry.id
+  newDiary.value = {
+    title: entry.title,
+    content: entry.content || '',
+    plantName: entry.plantName || '',
+    weather: entry.weather || '',
+    mood: entry.mood || '',
+    heightCm: entry.heightCm,
+    leafCount: entry.leafCount,
+    growthStage: entry.growthStage || '',
+    images: parseImages(entry.images || ''),
+  }
+  showModal.value = true
+}
+
+function openDiaryDetail(entry: Diary) {
+  selectedDiary.value = entry
+}
+
+function openCreateDiary() {
+  resetForm()
+  showModal.value = true
 }
 
 function formatDate(dateStr: string) {
@@ -205,7 +219,8 @@ function formatWeekday(dateStr: string) {
   return days[new Date(dateStr).getDay()]
 }
 
-function parseImages(images: string): string[] {
+function parseImages(images?: string): string[] {
+  if (!images) return []
   try { return JSON.parse(images) } catch { return [] }
 }
 
@@ -282,7 +297,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
               @click="filterPlant = filterPlant === name ? '' : name"
             >🌱 {{ name }}</button>
           </div>
-          <button class="diary__new-btn" @click="showModal = true">
+          <button class="diary__new-btn" @click="openCreateDiary">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
@@ -322,6 +337,17 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
                 <div class="diary__card-body">
                   <div class="diary__card-top">
                     <h3 class="diary__card-title">{{ entry.title }}</h3>
+                    <button
+                      v-if="entry.userAccount === auth.user?.account"
+                      class="diary__card-delete"
+                      @click="editDiary(entry)"
+                      title="编辑"
+                    >Edit</button>
+                    <button
+                      class="diary__card-delete"
+                      @click="openDiaryDetail(entry)"
+                      title="详情"
+                    >View</button>
                     <button
                       v-if="entry.userAccount === auth.user?.account"
                       class="diary__card-delete"
@@ -365,6 +391,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
                       :key="idx"
                       :src="img"
                       class="diary__card-image"
+                      loading="lazy"
                       @click="openLightbox(parseImages(entry.images), idx)"
                     />
                   </div>
@@ -389,10 +416,40 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
 
     <!-- Create modal -->
     <Teleport to="body">
+      <div v-if="selectedDiary" class="diary__modal-overlay" @click.self="selectedDiary = null">
+        <div class="diary__modal">
+          <div class="diary__modal-header">
+            <h2>{{ selectedDiary.title }}</h2>
+            <button class="diary__modal-close" @click="selectedDiary = null">脳</button>
+          </div>
+          <div class="diary__modal-body">
+            <div class="diary__card-tags">
+              <span v-if="selectedDiary.plantName" class="diary__tag diary__tag--plant">馃尡 {{ selectedDiary.plantName }}</span>
+              <span v-if="selectedDiary.growthStage" class="diary__tag diary__tag--stage">{{ selectedDiary.growthStage }}</span>
+              <span v-if="selectedDiary.weather" class="diary__tag diary__tag--weather">{{ selectedDiary.weather }}</span>
+              <span v-if="selectedDiary.mood" class="diary__tag diary__tag--mood">{{ selectedDiary.mood }}</span>
+            </div>
+            <p class="diary__card-content">{{ selectedDiary.content }}</p>
+            <div v-if="parseImages(selectedDiary.images || '').length" class="diary__card-images">
+              <img
+                v-for="(img, idx) in parseImages(selectedDiary.images || '')"
+                :key="idx"
+                :src="img"
+                loading="lazy"
+                class="diary__card-image"
+                @click="openLightbox(parseImages(selectedDiary!.images || ''), idx)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
       <div v-if="showModal" class="diary__modal-overlay" @click.self="showModal = false">
         <div class="diary__modal">
           <div class="diary__modal-header">
-            <h2>{{ t('diary.newEntry') }}</h2>
+            <h2>{{ editingId ? '编辑日记' : t('diary.newEntry') }}</h2>
             <button class="diary__modal-close" @click="showModal = false">×</button>
           </div>
 
@@ -497,7 +554,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
 
             <div v-if="newDiary.images.length" class="diary__preview">
               <div v-for="(img, idx) in newDiary.images" :key="idx" class="diary__preview-item">
-                <img :src="img" />
+                <img :src="img" loading="lazy" />
                 <button class="diary__preview-remove" @click="removeImage(idx)">×</button>
               </div>
             </div>
@@ -509,7 +566,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
               class="diary__submit-btn"
               :disabled="!newDiary.title.trim() || submitting"
               @click="submitDiary"
-            >{{ submitting ? '...' : t('diary.publish') }}</button>
+            >{{ submitting ? '...' : editingId ? '保存' : t('diary.publish') }}</button>
           </div>
         </div>
       </div>

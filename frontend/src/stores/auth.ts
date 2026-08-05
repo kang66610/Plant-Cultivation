@@ -1,14 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import request from '@/api/request'
-
-interface User {
-  id: number
-  username: string
-  account: string
-  avatarUrl: string
-  bio: string
-}
+import * as authApi from '@/api/authApi'
+import type { User } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -26,7 +19,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchUser() {
     if (!token.value) return
     try {
-      const res: any = await request.get('/auth/me')
+      const res = await authApi.getMe()
       if (res.code === 200) {
         user.value = res.data
       } else {
@@ -39,7 +32,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(account: string, password: string): Promise<string | null> {
     try {
-      const res: any = await request.post('/auth/login', { account, password })
+      const res = await authApi.login({ account, password })
       if (res.code === 200) {
         token.value = res.data.token
         user.value = res.data.user
@@ -54,7 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function register(username: string, account: string, password: string): Promise<string | null> {
     try {
-      const res: any = await request.post('/auth/register', { username, account, password })
+      const res = await authApi.register({ username, account, password })
       if (res.code === 200) {
         return null
       }
@@ -74,7 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const body: any = { username, bio }
       if (avatarUrl !== undefined) body.avatarUrl = avatarUrl
-      const res: any = await request.put('/auth/profile', body)
+      const res = await authApi.updateProfile(body)
       if (res.code === 200) {
         user.value = res.data
         return null
@@ -87,7 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function changePassword(oldPassword: string, newPassword: string): Promise<string | null> {
     try {
-      const res: any = await request.put('/auth/password', { oldPassword, newPassword })
+      const res = await authApi.changePassword({ oldPassword, newPassword })
       if (res.code === 200) return null
       return res.message
     } catch (e: any) {

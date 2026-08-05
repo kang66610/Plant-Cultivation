@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,10 +41,32 @@ public class PostService {
             qw.and(w -> w.like("content", keyword)
                     .or().like("plant_slug", keyword));
         }
-        qw.orderByDesc("created_at");
+        qw.orderByDesc("created_at").orderByDesc("id");
         Page<Post> result = postMapper.selectPage(pageObj, qw);
         enrichPosts(result.getRecords(), currentUser);
         return result;
+    }
+
+    public List<Post> listPostsAfterCursor(int limit, String categorySlug, String keyword,
+                                           String currentUser, LocalDateTime cursorCreatedAt,
+                                           Long cursorId) {
+        QueryWrapper<Post> qw = new QueryWrapper<>();
+        if (categorySlug != null && !categorySlug.isBlank()) {
+            qw.eq("category_slug", categorySlug);
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            qw.and(w -> w.like("content", keyword)
+                    .or().like("plant_slug", keyword));
+        }
+        qw.and(w -> w.lt("created_at", cursorCreatedAt)
+                .or()
+                .eq("created_at", cursorCreatedAt)
+                .lt("id", cursorId));
+        qw.orderByDesc("created_at").orderByDesc("id");
+        qw.last("LIMIT " + Math.max(1, Math.min(limit, 101)));
+        List<Post> posts = postMapper.selectList(qw);
+        enrichPosts(posts, currentUser);
+        return posts;
     }
 
     @Transactional
