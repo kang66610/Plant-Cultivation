@@ -7,9 +7,10 @@ import { ApiState, AuthModal } from '@/components/common'
 import { listPlants } from '@/api/plantApi'
 import * as postApi from '@/api/postApi'
 import { uploadImage } from '@/api/uploadApi'
+import { getCategoryDisplayName, getPlantDisplayName, plantCategoryOptions } from '@/utils/plantI18n'
 import type { Plant, Post, PostComment } from '@/types'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const auth = useAuthStore()
 
@@ -37,14 +38,7 @@ const categoryFilter = ref('')
 const searchKeyword = ref('')
 const searchInput = ref('')
 
-const categories = [
-  { slug: 'succulents', name: '多肉植物', emoji: '🌵' },
-  { slug: 'tropical', name: '热带植物', emoji: '🌿' },
-  { slug: 'herbs', name: '香草植物', emoji: '🌱' },
-  { slug: 'ferns', name: '蕨类植物', emoji: '🌾' },
-  { slug: 'flowering', name: '开花植物', emoji: '🌸' },
-  { slug: 'trees', name: '室内树木', emoji: '🌳' },
-]
+const categories = plantCategoryOptions
 
 const plants = ref<Pick<Plant, 'slug' | 'commonName'>[]>([])
 
@@ -134,8 +128,29 @@ const selectedPostCategory = computed(() => {
 })
 
 const selectedPostPlantName = computed(() => {
-  return plants.value.find(p => p.slug === newPost.value.plantSlug)?.commonName || ''
+  const plant = plants.value.find(p => p.slug === newPost.value.plantSlug)
+  return plant ? getPlantDisplayName(plant, locale.value) : ''
 })
+
+function categoryName(slug: string) {
+  return getCategoryDisplayName(slug, slug, t)
+}
+
+function categoryEmoji(slug: string) {
+  return categories.find(c => c.slug === slug)?.emoji || ''
+}
+
+function plantName(plant: Pick<Plant, 'slug' | 'commonName'>) {
+  return getPlantDisplayName(plant, locale.value)
+}
+
+function postPlantName(post: Post) {
+  if (!post.plantSlug) return post.plantName || ''
+  return getPlantDisplayName(
+    { slug: post.plantSlug, commonName: post.plantName || post.plantSlug },
+    locale.value
+  )
+}
 
 async function fetchPlants() {
   try {
@@ -312,7 +327,7 @@ onMounted(() => {
         :class="{ 'community__cat-btn--active': categoryFilter === cat.slug }"
         @click="selectCategory(cat.slug)"
       >
-        {{ cat.emoji }} {{ cat.name }}
+        {{ cat.emoji }} {{ categoryName(cat.slug) }}
       </button>
     </div>
 
@@ -333,10 +348,10 @@ onMounted(() => {
           </div>
           <div class="post-card__actions">
             <button v-if="post.categorySlug" class="post-card__tag post-card__tag--cat" @click="selectCategory(post.categorySlug)">
-              {{ categories.find(c => c.slug === post.categorySlug)?.emoji }} {{ categories.find(c => c.slug === post.categorySlug)?.name }}
+              {{ categoryEmoji(post.categorySlug) }} {{ categoryName(post.categorySlug) }}
             </button>
             <button v-if="post.plantSlug" class="post-card__tag" @click="goToPlant(post.plantSlug)">
-              {{ post.plantName || post.plantSlug }}
+              {{ postPlantName(post) }}
             </button>
             <button v-if="auth.isLoggedIn && auth.user?.account === post.userAccount"
               class="post-card__delete" @click="deletePost(post.id)">
@@ -405,7 +420,7 @@ onMounted(() => {
                   :class="{ 'create-modal__select--open': activePostPicker === 'category', 'create-modal__select--filled': newPost.categorySlug }"
                   @click="togglePostPicker('category')"
                 >
-                  <span>{{ selectedPostCategory ? `${selectedPostCategory.emoji} ${selectedPostCategory.name}` : t('community.selectCategory') }}</span>
+                  <span>{{ selectedPostCategory ? `${selectedPostCategory.emoji} ${categoryName(selectedPostCategory.slug)}` : t('community.selectCategory') }}</span>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                 </button>
                 <Transition name="picker">
@@ -418,7 +433,7 @@ onMounted(() => {
                       :class="{ 'create-modal__option--active': newPost.categorySlug === cat.slug }"
                       @click="setPostCategory(cat.slug)"
                     >
-                      {{ cat.emoji }} {{ cat.name }}
+                      {{ cat.emoji }} {{ categoryName(cat.slug) }}
                     </button>
                   </div>
                 </Transition>
@@ -443,7 +458,7 @@ onMounted(() => {
                       :class="{ 'create-modal__option--active': newPost.plantSlug === p.slug }"
                       @click="setPostPlant(p.slug)"
                     >
-                      {{ p.commonName }}
+                      {{ plantName(p) }}
                     </button>
                   </div>
                 </Transition>
@@ -1118,7 +1133,7 @@ onMounted(() => {
   border-radius: 1.25rem;
   padding: 2rem;
   width: 100%;
-  max-width: 560px;
+  max-width: 680px;
   max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
@@ -1152,6 +1167,7 @@ onMounted(() => {
   &__row {
     margin-top: 0.75rem;
     display: flex;
+    flex-direction: column;
     gap: 0.65rem;
     align-items: flex-start;
   }
@@ -1164,12 +1180,12 @@ onMounted(() => {
 
   &__select {
     width: 100%;
-    min-height: 42px;
+    min-height: 52px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.58rem 0.9rem 0.58rem 1rem;
+    padding: 0.78rem 1rem 0.78rem 1.1rem;
     border: 1px solid rgba(22, 163, 74, 0.16);
     border-radius: 999px;
     font-size: 0.9rem;
@@ -1217,7 +1233,7 @@ onMounted(() => {
     left: 0;
     right: 0;
     top: calc(100% + 0.45rem);
-    max-height: 240px;
+    max-height: 320px;
     overflow-y: auto;
     padding: 0.38rem;
     border: 1px solid rgba(22, 163, 74, 0.18);
@@ -1234,7 +1250,7 @@ onMounted(() => {
     width: 100%;
     display: flex;
     align-items: center;
-    padding: 0.58rem 0.72rem;
+    padding: 0.7rem 0.82rem;
     border: 0;
     border-radius: 0.75rem;
     background: transparent;

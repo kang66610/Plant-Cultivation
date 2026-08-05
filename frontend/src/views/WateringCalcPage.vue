@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getPlantDisplayNameByScientificName } from '@/utils/plantI18n'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 // ─── Types ──────────────────────────────────────────────────
 interface CalcPlant {
@@ -330,7 +331,8 @@ const filteredPlants = computed(() => {
   return mockPlants.filter(
     (p) =>
       p.commonName.toLowerCase().includes(q) ||
-      p.scientificName.toLowerCase().includes(q),
+      p.scientificName.toLowerCase().includes(q) ||
+      plantName(p).toLowerCase().includes(q),
   )
 })
 
@@ -394,6 +396,10 @@ watch(potSliderValue, (val) => {
 // ─── Methods ────────────────────────────────────────────────
 function selectPlant(plant: CalcPlant) {
   selectedPlant.value = plant
+}
+
+function plantName(plant: CalcPlant) {
+  return getPlantDisplayNameByScientificName(plant.scientificName, plant.commonName, locale.value)
 }
 
 function goNext() {
@@ -519,7 +525,7 @@ function getDaysInMonth(): number {
               @click="selectPlant(plant)"
             >
               <span class="watering-calc__plant-emoji">{{ plant.emoji }}</span>
-              <span class="watering-calc__plant-name">{{ plant.commonName }}</span>
+              <span class="watering-calc__plant-name">{{ plantName(plant) }}</span>
               <span class="watering-calc__plant-sci">{{ plant.scientificName }}</span>
             </button>
           </div>
@@ -673,7 +679,7 @@ function getDaysInMonth(): number {
             <div class="watering-calc__result-header">
               <span class="watering-calc__result-emoji">{{ selectedPlant?.emoji }}</span>
               <div>
-                <h2 class="watering-calc__result-plant-name">{{ selectedPlant?.commonName }}</h2>
+                <h2 class="watering-calc__result-plant-name">{{ selectedPlant ? plantName(selectedPlant) : '' }}</h2>
                 <p class="watering-calc__result-plant-sci">{{ selectedPlant?.scientificName }}</p>
               </div>
             </div>

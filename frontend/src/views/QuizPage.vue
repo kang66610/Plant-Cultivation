@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const router = useRouter()
 
@@ -30,12 +30,19 @@ const directions = computed(() => [
 
 const recommendations = computed(() => {
   const lightLevel = windows.value.find(w => w.id === answers.value.window)?.light || 'medium'
-  const plants: Record<string, string[]> = {
+  const plantsZh: Record<string, string[]> = {
     low: ['虎皮兰', '绿萝', '金钱树', '白掌', '竹芋'],
     medium: ['龟背竹', '吊兰', '橡皮树', '蝴蝶兰', '无尽夏', '文心兰'],
     high: ['琴叶榕', '天堂鸟', '薰衣草', '罗勒'],
     bright_direct: ['芦荟', '仙人掌（各种）', '玉树', '向日葵', '薄荷', '多肉吉娃娃'],
   }
+  const plantsEn: Record<string, string[]> = {
+    low: ['Snake plant', 'Pothos', 'ZZ plant', 'Peace lily', 'Calathea'],
+    medium: ['Monstera', 'Spider plant', 'Rubber plant', 'Orchid', 'Endless summer hydrangea', 'Oncidium orchid'],
+    high: ['Fiddle leaf fig', 'Bird of paradise', 'Lavender', 'Basil'],
+    bright_direct: ['Aloe vera', 'Cactus varieties', 'Jade plant', 'Sunflower', 'Mint', 'Echeveria'],
+  }
+  const plants = locale.value === 'zh-CN' ? plantsZh : plantsEn
   return plants[lightLevel] || plants.medium
 })
 

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import ModelViewer from '@/components/common/ModelViewer.vue'
 
 const { t, locale } = useI18n()
 
@@ -15,6 +14,69 @@ const titleWords = computed(() => {
   }
   return [t('hero.word1'), t('hero.word2'), t('hero.word3'), t('hero.word4'), t('hero.word5')]
 })
+
+const heroBadges = computed(() => {
+  if (locale.value === 'zh-CN') {
+    return ['光照匹配', '浇水提醒', '养护记录']
+  }
+  return ['Light match', 'Watering rhythm', 'Care journal']
+})
+
+const showcaseTop = [
+  { name: 'Monstera', image: '/images/plants/monstera.jpg' },
+  { name: 'Pothos', image: '/images/plants/pothos.jpg' },
+  { name: 'Peace lily', image: '/images/plants/peace-lily.jpg' },
+  { name: 'Calathea', image: '/images/plants/calathea.jpg' },
+  { name: 'Bird of paradise', image: '/images/plants/bird-of-paradise.jpg' },
+  { name: 'Areca palm', image: '/images/plants/areca-palm.jpg' },
+  { name: 'Rubber plant', image: '/images/plants/rubber-plant.jpg' },
+  { name: 'Alocasia', image: '/images/plants/alocasia-amazonica.jpg' },
+  { name: 'Arrowhead', image: '/images/plants/arrowhead.jpg' },
+  { name: 'Asplenium', image: '/images/plants/asplenium-nidus.jpg' },
+  { name: 'Basil', image: '/images/plants/basil.jpg' },
+  { name: 'Caladium', image: '/images/plants/caladium-bicolor.jpg' },
+  { name: 'China doll', image: '/images/plants/china-doll.jpg' },
+  { name: 'Chinese evergreen', image: '/images/plants/chinese-evergreen.jpg' },
+  { name: 'Cyclamen', image: '/images/plants/cyclamen.jpg' },
+  { name: 'Dragon tree', image: '/images/plants/dragon-tree.jpg' },
+  { name: 'Dumb cane', image: '/images/plants/dumb-cane.jpg' },
+  { name: 'Fuchsia', image: '/images/plants/fuchsia.jpg' },
+  { name: 'Jade plant', image: '/images/plants/jade-plant.jpg' },
+  { name: 'Lavender', image: '/images/plants/lavender.jpg' },
+  { name: 'Mint', image: '/images/plants/mint.jpg' },
+  { name: 'Orchid', image: '/images/plants/orchid.jpg' },
+  { name: 'Parlor palm', image: '/images/plants/parlor-palm.jpg' },
+  { name: 'Pennywort', image: '/images/plants/pennywort.jpg' },
+  { name: 'Philodendron', image: '/images/plants/philodendron.jpg' },
+]
+
+const showcaseBottom = [
+  { name: 'Snake plant', image: '/images/plants/snake-plant.jpg' },
+  { name: 'Aloe vera', image: '/images/plants/aloe-vera.jpg' },
+  { name: 'Spider plant', image: '/images/plants/spider-plant.jpg' },
+  { name: 'ZZ plant', image: '/images/plants/zz-plant.jpg' },
+  { name: 'Fiddle leaf fig', image: '/images/plants/fiddle-leaf-fig.jpg' },
+  { name: 'Boston fern', image: '/images/plants/boston-fern.jpg' },
+  { name: 'Peperomia', image: '/images/plants/peperomia.jpg' },
+  { name: 'Alocasia cucullata', image: '/images/plants/alocasia-cucullata.jpg' },
+  { name: 'Cactus', image: '/images/plants/cactus.jpg' },
+  { name: 'Chinese money plant', image: '/images/plants/chinese-money-plant.jpg' },
+  { name: 'Echeveria', image: '/images/plants/echeveria-chihuahuensis.jpg' },
+  { name: 'Hedera', image: '/images/plants/hedera-helix.jpg' },
+  { name: 'Hydrangea', image: '/images/plants/hydrangea-endless-summer.jpg' },
+  { name: 'Murraya', image: '/images/plants/murraya-exotica.jpg' },
+  { name: 'Nerve plant', image: '/images/plants/nerve-plant.jpg' },
+  { name: 'Oncidium', image: '/images/plants/oncidium.jpg' },
+  { name: 'Pieris', image: '/images/plants/pieris-japonica.jpg' },
+  { name: 'Pilea', image: '/images/plants/pilea-cadierei.jpg' },
+  { name: 'Ponytail palm', image: '/images/plants/ponytail-palm.jpg' },
+  { name: 'Satin pothos', image: '/images/plants/satin-pothos.jpg' },
+  { name: 'Selloum', image: '/images/plants/selloum.jpg' },
+  { name: 'String of pearls', image: '/images/plants/string-of-pearls.jpg' },
+  { name: 'Sunflower', image: '/images/plants/sunflower.jpg' },
+  { name: 'Tradescantia', image: '/images/plants/tradescantia-quadricolor.jpg' },
+  { name: 'Philodendron imperial', image: '/images/plants/philodendron-imperial-green.jpg' },
+]
 
 const revealedWords = ref<boolean[]>([])
 const subtitleVisible = ref(false)
@@ -452,10 +514,16 @@ onUnmounted(() => {
     <div class="hero__layout">
       <div
         class="hero__content"
+        :class="{ 'hero__content--en': locale !== 'zh-CN' }"
         :style="{
           transform: `translate(${mouseX * 0.3}px, ${mouseY * 0.3}px)`,
         }"
       >
+        <div class="hero__eyebrow">
+          <span class="hero__eyebrow-dot" />
+          <span>{{ locale === 'zh-CN' ? '绿色伙伴的养护中枢' : 'A living care hub' }}</span>
+        </div>
+
         <h1 class="hero__title">
           <span
             v-for="(word, i) in titleWords"
@@ -486,11 +554,39 @@ onUnmounted(() => {
             </svg>
           </router-link>
         </div>
+
+        <div class="hero__badges" :class="{ 'hero__badges--visible': ctaVisible }">
+          <span v-for="badge in heroBadges" :key="badge" class="hero__badge">
+            {{ badge }}
+          </span>
+        </div>
       </div>
 
-      <div class="hero__model">
-        <div class="hero__model-glow" />
-        <ModelViewer auto-rotate height="350px" />
+    </div>
+
+    <div class="hero__showcase" aria-label="Plant gallery">
+      <div class="hero__showcase-glow" />
+      <div class="hero__showcase-row hero__showcase-row--top">
+        <div class="hero__showcase-track">
+          <article
+            v-for="(plant, index) in [...showcaseTop, ...showcaseTop]"
+            :key="`top-${plant.name}-${index}`"
+            class="hero__plant-tile"
+          >
+            <img :src="plant.image" :alt="plant.name" loading="lazy" />
+          </article>
+        </div>
+      </div>
+      <div class="hero__showcase-row hero__showcase-row--bottom">
+        <div class="hero__showcase-track">
+          <article
+            v-for="(plant, index) in [...showcaseBottom, ...showcaseBottom]"
+            :key="`bottom-${plant.name}-${index}`"
+            class="hero__plant-tile"
+          >
+            <img :src="plant.image" :alt="plant.name" loading="lazy" />
+          </article>
+        </div>
       </div>
     </div>
 
@@ -511,12 +607,16 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .hero {
   position: relative;
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   overflow: hidden;
-  background: linear-gradient(135deg, #052e16 0%, #14532d 40%, #166534 100%);
+  padding-top: clamp(6.5rem, 12vh, 8.5rem);
+  background:
+    radial-gradient(ellipse 52% 42% at 72% 48%, rgba(187, 247, 208, 0.24), transparent 58%),
+    radial-gradient(ellipse 40% 28% at 18% 78%, rgba(21, 128, 61, 0.28), transparent 58%),
+    linear-gradient(135deg, #042713 0%, #0d3f22 42%, #166534 100%);
 
   &__texture {
     position: absolute;
@@ -687,40 +787,63 @@ onUnmounted(() => {
     }
   }
 
-  &__model {
-    flex-shrink: 0;
-    width: 350px;
-    opacity: 0.9;
-    position: relative;
-  }
-
-  &__model-glow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 280px;
-    height: 280px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(74, 222, 128, 0.25) 0%, rgba(34, 197, 94, 0.08) 50%, transparent 70%);
-    filter: blur(30px);
-    animation: glowPulse 4s ease-in-out infinite;
-    z-index: -1;
-  }
-
   &__layout {
     position: relative;
     z-index: 2;
+    width: min(1180px, calc(100% - 3rem));
+    padding: 0;
     display: flex;
-    align-items: center;
-    gap: 3rem;
-    max-width: 1100px;
-    padding: 2rem;
+    justify-content: center;
+    text-align: center;
   }
 
   &__content {
-    flex: 1;
+    max-width: 760px;
     transition: transform 0.1s ease-out;
+
+    &--en {
+      position: relative;
+      top: clamp(-2.4rem, -4vh, -1.4rem);
+
+      .hero__title {
+        flex-wrap: nowrap;
+        gap: clamp(0.35rem, 0.85vw, 0.72rem);
+        white-space: nowrap;
+      }
+
+      .hero__word {
+        font-size: clamp(1.9rem, 4.05vw, 3.05rem);
+      }
+
+      .hero__badges {
+        margin-top: 0.85rem;
+      }
+    }
+  }
+
+  &__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.48rem 0.85rem;
+    margin-bottom: 1.15rem;
+    border: 1px solid rgba(187, 247, 208, 0.24);
+    border-radius: 999px;
+    background: rgba(240, 253, 244, 0.08);
+    color: rgba(240, 253, 244, 0.82);
+    font-size: 0.86rem;
+    font-weight: 650;
+    backdrop-filter: blur(12px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  &__eyebrow-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: $color-leaf-400;
+    box-shadow: 0 0 0 5px rgba(74, 222, 128, 0.12);
+    animation: livePulse 2.4s ease-in-out infinite;
   }
 
   &__title {
@@ -729,6 +852,7 @@ onUnmounted(() => {
     justify-content: center;
     gap: 0.4em;
     margin-bottom: 1.5rem;
+    text-wrap: balance;
   }
 
   &__word {
@@ -755,8 +879,12 @@ onUnmounted(() => {
 
   &__subtitle {
     font-size: clamp(1rem, 2vw, 1.25rem);
-    color: rgba(240, 253, 244, 0.7);
-    margin-bottom: 2.5rem;
+    color: rgba(240, 253, 244, 0.78);
+    max-width: 560px;
+    line-height: 1.75;
+    margin-bottom: 2rem;
+    margin-left: auto;
+    margin-right: auto;
     transform: translateY(20px);
     opacity: 0;
     transition: all 0.6s $ease-out-expo;
@@ -775,6 +903,40 @@ onUnmounted(() => {
     &--visible {
       transform: translateY(0);
       opacity: 1;
+    }
+  }
+
+  &__badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.65rem;
+    margin-top: 1.1rem;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: all 0.5s $ease-out-expo;
+
+    &--visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  &__badge {
+    padding: 0.42rem 0.78rem;
+    border-radius: 999px;
+    border: 1px solid rgba(187, 247, 208, 0.2);
+    background: rgba(236, 253, 245, 0.08);
+    color: rgba(240, 253, 244, 0.78);
+    font-size: 0.8rem;
+    font-weight: 650;
+    backdrop-filter: blur(10px);
+    transition: transform 0.22s ease, background-color 0.22s ease, color 0.22s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      background: rgba(236, 253, 245, 0.14);
+      color: #f0fdf4;
     }
   }
 
@@ -824,6 +986,109 @@ onUnmounted(() => {
 
     .hero__button:hover & {
       transform: rotate(15deg) scale(1.1);
+    }
+  }
+
+  &__showcase {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: clamp(4.8rem, 8vh, 6.2rem);
+    z-index: 3;
+    display: grid;
+    gap: 1rem;
+    padding: 0.35rem 0;
+    overflow: hidden;
+    pointer-events: auto;
+    mask-image: linear-gradient(90deg, transparent 0, black 9%, black 91%, transparent 100%);
+  }
+
+  &__showcase-glow {
+    position: absolute;
+    inset: 12% 0 auto;
+    height: 120px;
+    background:
+      radial-gradient(ellipse at 30% 50%, rgba(187, 247, 208, 0.18), transparent 55%),
+      radial-gradient(ellipse at 75% 45%, rgba(74, 222, 128, 0.16), transparent 52%);
+    filter: blur(24px);
+    pointer-events: none;
+  }
+
+  &__showcase-row {
+    position: relative;
+    display: flex;
+    width: max-content;
+    min-width: 100%;
+
+    &--top .hero__showcase-track {
+      animation: plantMarqueeRight 76s linear infinite;
+    }
+
+    &--bottom .hero__showcase-track {
+      animation: plantMarqueeLeft 82s linear infinite;
+    }
+
+    &:hover .hero__showcase-track {
+      animation-play-state: paused;
+    }
+  }
+
+  &__showcase-track {
+    display: flex;
+    gap: 1rem;
+    min-width: max-content;
+    will-change: transform;
+  }
+
+  &__plant-tile {
+    position: relative;
+    width: clamp(150px, 13vw, 210px);
+    height: clamp(92px, 8vw, 122px);
+    flex: 0 0 auto;
+    overflow: hidden;
+    border: 1px solid rgba(220, 252, 231, 0.16);
+    border-radius: 1.35rem;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(240, 253, 244, 0.06));
+    box-shadow:
+      0 18px 40px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(12px);
+    transition: transform 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      opacity: 0.58;
+      filter: saturate(1.02) contrast(1.02);
+      transition: transform 0.4s ease, opacity 0.28s ease, filter 0.28s ease;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(4, 39, 19, 0.08), rgba(4, 39, 19, 0.28)),
+        radial-gradient(circle at 20% 18%, rgba(187, 247, 208, 0.12), transparent 38%);
+      pointer-events: none;
+    }
+
+    &:hover {
+      transform: translateY(-4px) scale(1.02);
+      border-color: rgba(187, 247, 208, 0.42);
+      box-shadow:
+        0 24px 50px rgba(0, 0, 0, 0.24),
+        0 0 0 1px rgba(187, 247, 208, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+
+      img {
+        opacity: 0.78;
+        filter: saturate(1.16) contrast(1.04);
+        transform: scale(1.08);
+      }
     }
   }
 
@@ -881,6 +1146,21 @@ onUnmounted(() => {
   50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
 }
 
+@keyframes livePulse {
+  0%, 100% { box-shadow: 0 0 0 5px rgba(74, 222, 128, 0.12); }
+  50% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0.04); }
+}
+
+@keyframes plantMarqueeRight {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes plantMarqueeLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 @keyframes orbFloat {
   0%, 100% { transform: translate(0, 0); }
   25% { transform: translate(15px, -10px); }
@@ -902,18 +1182,37 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .hero {
     &__layout {
-      flex-direction: column;
       text-align: center;
+      width: min(100% - 2rem, 560px);
     }
 
-    &__model {
-      width: 250px;
-      order: -1;
+    &__content {
+      max-width: none;
     }
 
-    &__model-glow {
-      width: 200px;
-      height: 200px;
+    &__title,
+    &__badges {
+      justify-content: center;
+    }
+
+    &__subtitle {
+      max-width: none;
+    }
+
+    &__showcase {
+      bottom: 4.8rem;
+      gap: 0.75rem;
+      mask-image: linear-gradient(90deg, transparent 0, black 5%, black 95%, transparent 100%);
+    }
+
+    &__showcase-track {
+      gap: 0.75rem;
+    }
+
+    &__plant-tile {
+      width: 142px;
+      height: 88px;
+      border-radius: 1rem;
     }
 
     &__deco {
@@ -937,4 +1236,5 @@ onUnmounted(() => {
     &__aurora { display: none; }
   }
 }
+
 </style>

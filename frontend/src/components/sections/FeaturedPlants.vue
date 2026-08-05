@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { listFeaturedPlants } from '@/api/plantApi'
+import { getPlantDisplayDescription, getPlantDisplayName } from '@/utils/plantI18n'
 const router = useRouter()
+const { locale } = useI18n()
 const sectionVisible = ref(false)
 const sectionRef = ref<HTMLElement>()
 
@@ -81,6 +84,14 @@ onMounted(async () => {
 function goToPlant(slug: string) {
   router.push(`/plant/${slug}`)
 }
+
+function plantName(plant: Plant) {
+  return getPlantDisplayName(plant, locale.value)
+}
+
+function plantDescription(plant: Plant) {
+  return getPlantDisplayDescription(plant, locale.value)
+}
 </script>
 
 <template>
@@ -103,16 +114,16 @@ function goToPlant(slug: string) {
         <div class="featured__card-image">
           <img
             :src="plant.imageUrl"
-            :alt="plant.commonName"
+            :alt="plantName(plant)"
             class="featured__card-img"
             loading="lazy"
           />
         </div>
 
         <div class="featured__card-body">
-          <h3 class="featured__card-name">{{ plant.commonName }}</h3>
+          <h3 class="featured__card-name">{{ plantName(plant) }}</h3>
           <p class="featured__card-sci">{{ plant.scientificName }}</p>
-          <p class="featured__card-desc">{{ plant.shortDescription }}</p>
+          <p class="featured__card-desc">{{ plantDescription(plant) }}</p>
 
           <div class="featured__card-meta">
             <span

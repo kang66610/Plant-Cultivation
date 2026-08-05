@@ -1,37 +1,65 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const sectionVisible = ref(false)
 const sectionRef = ref<HTMLElement>()
 const activeIndex = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
 
-const testimonials = [
-  {
-    name: '小绿',
-    avatar: '🧑‍🌾',
-    role: '园艺新手',
-    text: '以前总是养死植物，自从用了这个网站的浇水计算器，我的绿萝已经长了三倍大！',
-    plant: '绿萝',
-  },
-  {
-    name: '植物达人',
-    avatar: '👩‍🔬',
-    role: '室内设计师',
-    text: '植物百科的数据非常全面，形态特征、四季养护都有详细说明，做方案时经常参考。',
-    plant: '琴叶榕',
-  },
-  {
-    name: '阿花',
-    avatar: '👨‍🍳',
-    role: '厨房园丁',
-    text: '光照问答帮我找到了厨房窗台最适合的香草，现在罗勒和薄荷长得特别好！',
-    plant: '罗勒',
-  },
-]
+const testimonials = computed(() => {
+  if (locale.value !== 'zh-CN') {
+    return [
+      {
+        name: 'Lina',
+        avatar: '🧑‍🌾',
+        role: 'New plant parent',
+        text: 'I used to overwater everything. The watering calculator helped my pothos finally grow full and healthy.',
+        plant: 'Pothos',
+      },
+      {
+        name: 'Maya',
+        avatar: '👩‍🎨',
+        role: 'Interior designer',
+        text: 'The encyclopedia is detailed enough for real room planning. I often check morphology, light, and seasonal care before choosing plants.',
+        plant: 'Fiddle leaf fig',
+      },
+      {
+        name: 'Owen',
+        avatar: '👨‍🍳',
+        role: 'Kitchen gardener',
+        text: 'The light quiz pointed me to the right herbs for my kitchen window. My basil and mint are thriving now.',
+        plant: 'Basil',
+      },
+    ]
+  }
+
+  return [
+    {
+      name: '小绿',
+      avatar: '🧑‍🌾',
+      role: '园艺新手',
+      text: '以前总是养死植物，自从用了这个网站的浇水计算器，我的绿萝已经长了三倍大！',
+      plant: '绿萝',
+    },
+    {
+      name: '植物达人',
+      avatar: '👩‍🎨',
+      role: '室内设计师',
+      text: '植物百科的数据非常全面，形态特征、四季养护都有详细说明，做方案时经常参考。',
+      plant: '琴叶榕',
+    },
+    {
+      name: '阿花',
+      avatar: '👨‍🍳',
+      role: '厨房园丁',
+      text: '光照问答帮我找到了厨房窗台最适合的香草，现在罗勒和薄荷长得特别好！',
+      plant: '罗勒',
+    },
+  ]
+})
 
 onMounted(() => {
   const observer = new IntersectionObserver(
@@ -43,7 +71,7 @@ onMounted(() => {
   if (sectionRef.value) observer.observe(sectionRef.value)
 
   timer = setInterval(() => {
-    activeIndex.value = (activeIndex.value + 1) % testimonials.length
+    activeIndex.value = (activeIndex.value + 1) % testimonials.value.length
   }, 6000)
 })
 

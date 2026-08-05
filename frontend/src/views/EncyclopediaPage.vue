@@ -3,9 +3,10 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { listCategories, listPlants } from '@/api/plantApi'
+import { getCategoryDisplayName, getPlantDisplayDescription, getPlantDisplayName } from '@/utils/plantI18n'
 import type { Category, Plant } from '@/types'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const router = useRouter()
 const route = useRoute()
@@ -47,6 +48,18 @@ const waterLabels = computed<Record<string, string>>(() => ({
   biweekly: t('encyclopedia.biweekly'),
   frequent: t('encyclopedia.frequent'),
 }))
+
+function categoryName(cat: Category) {
+  return getCategoryDisplayName(cat.slug, cat.name, t)
+}
+
+function plantName(plant: Plant) {
+  return getPlantDisplayName(plant, locale.value)
+}
+
+function plantDescription(plant: Plant) {
+  return getPlantDisplayDescription(plant, locale.value)
+}
 
 const allMockPlants: Plant[] = [
   { id: 1, commonName: '龟背竹', scientificName: 'Monstera deliciosa', slug: 'monstera-deliciosa', shortDescription: '标志性裂叶热带植物，非常适合营造丛林氛围', imageUrl: '/images/plants/monstera.jpg', difficulty: 'easy', lightLevel: 'medium', waterFrequency: 'weekly' },
@@ -123,7 +136,8 @@ async function fetchPlants() {
       const q = searchQuery.value.toLowerCase()
       filtered = filtered.filter(p =>
         p.commonName.toLowerCase().includes(q) ||
-        p.scientificName.toLowerCase().includes(q)
+        p.scientificName.toLowerCase().includes(q) ||
+        getPlantDisplayName(p, 'en').toLowerCase().includes(q)
       )
     }
     plants.value = filtered
@@ -224,7 +238,7 @@ onUnmounted(() => {
               :class="{ 'encyclopedia__filter-btn--active': activeCategory === cat.slug }"
               @click="activeCategory = cat.slug"
             >
-              {{ cat.name }}
+              {{ categoryName(cat) }}
             </button>
           </div>
         </div>
@@ -309,15 +323,15 @@ onUnmounted(() => {
           <div class="encyclopedia__card-image">
             <img
               :src="plant.imageUrl"
-              :alt="plant.commonName"
+              :alt="plantName(plant)"
               class="encyclopedia__card-img"
               loading="lazy"
             />
           </div>
           <div class="encyclopedia__card-body">
-            <h3 class="encyclopedia__card-name">{{ plant.commonName }}</h3>
+            <h3 class="encyclopedia__card-name">{{ plantName(plant) }}</h3>
             <p class="encyclopedia__card-sci">{{ plant.scientificName }}</p>
-            <p class="encyclopedia__card-desc">{{ plant.shortDescription }}</p>
+            <p class="encyclopedia__card-desc">{{ plantDescription(plant) }}</p>
             <div class="encyclopedia__card-meta">
               <span
                 class="encyclopedia__card-badge"
