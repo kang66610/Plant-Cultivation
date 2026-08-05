@@ -4,28 +4,29 @@
 
 **[中文](#-核心功能) | [English](README.en.md)**
 
-植物培育养护平台 — 一个集植物百科、养护指南、社区交流于一体的全栈应用。
+植物培育养护平台 — 一个集植物百科、养护指南、社区交流、种植日记与养护工具于一体的全栈应用。
 
 </div>
 
 ## ✨ 核心功能
 
-- **植物百科** — 收录 50+ 种植物的详细养护数据，涵盖光照、浇水、施肥、土壤、病虫害等 70+ 字段
-- **养护指南** — 按季节分类的个性化养护建议，支持浇水计算器
-- **社区交流** — 发帖、点赞、评论，分享养花心得
-- **植物日记** — 记录植物生长历程，支持图片、株高、叶片数等数据追踪
-- **用户中心** — 个人收藏、养护提醒、资料管理
-- **3D 展示** — 支持 Three.js 植物模型渲染
-- **国际化** — 中文/英文双语支持
+- **植物百科** — 收录 50+ 种植物的详细养护数据，涵盖光照、浇水、施肥、土壤、病虫害、毒性安全等 70+ 字段
+- **植物详情页** — 轻量动画、浅绿色卡片、返回按钮、滑动标签栏、指南缺失兜底展示
+- **养护指南** — 按植物生成浇水、光照、施肥、修剪、通用养护建议，支持补齐缺失指南 SQL
+- **社区交流** — 发帖、点赞、评论、图片上传、植物标签搜索，适配移动端抽屉导航
+- **植物日记** — 记录植物生长历程，支持图片、株高、叶片数、生长趋势图、时间线/卡片视图
+- **用户中心** — 个人收藏、养护提醒、资料管理、头像上传
+- **图片上传优化** — 前端上传前校验/压缩，后端魔数校验、尺寸限制、统一错误返回
+- **国际化** — 中文/英文双语支持，植物名称、分类、标签与主要界面文案随语言切换
 
 ## 🛠 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| 前端 | Vue 3 + TypeScript + Vite + Element Plus + Three.js + Tailwind CSS |
+| 前端 | Vue 3 + TypeScript + Vite + Pinia + vue-i18n + Sass |
 | 后端 | Spring Boot 3.4 + MyBatis Plus + Spring Security + JWT |
 | 数据库 | MySQL 8.0 |
-| 国际化 | vue-i18n |
+| 部署 | 宝塔 Nginx + systemd + GitHub Actions |
 
 ## 📁 项目结构
 
@@ -55,7 +56,10 @@ Plant-Cultivation/
 │   │   ├── types/              # TypeScript 类型
 │   │   └── views/              # 页面组件
 │   └── public/                 # 静态资源
-└── scripts/                    # 工具脚本
+├── scripts/                    # 部署与数据库工具脚本
+│   ├── deploy.sh               # 宝塔服务器切换/重启/健康检查脚本
+│   └── fill_missing_care_guides.sql
+└── DEPLOYMENT.md               # 线上部署与排查说明
 ```
 
 ## 🚀 快速开始
@@ -69,9 +73,12 @@ Plant-Cultivation/
 ### 1. 数据库初始化
 
 ```bash
-# 创建数据库并导入数据
+# 创建数据库并导入结构与种子数据
 mysql -u root -p < backend/src/main/resources/db/schema.sql
 mysql -u root -p plant_cultivation < backend/src/main/resources/db/data.sql
+
+# 可选：补齐缺失的植物养护指南（幂等，可重复执行）
+mysql -u plant_cultivation -p plant_cultivation < scripts/fill_missing_care_guides.sql
 ```
 
 ### 2. 启动后端
@@ -79,9 +86,10 @@ mysql -u root -p plant_cultivation < backend/src/main/resources/db/data.sql
 ```bash
 cd backend
 
-# 配置环境变量（或修改 application.yml）
+# 配置环境变量
 export DB_PASSWORD=your_password
 export JWT_SECRET=your_jwt_secret
+export UPLOAD_DIR=/www/wwwroot/uploads
 
 # 启动
 ./gradlew bootRun
@@ -103,6 +111,26 @@ npm run dev
 
 前端运行在 `http://localhost:5173`
 
+### 4. 构建与测试
+
+```bash
+# 前端类型检查 + 生产构建
+cd frontend
+npm run build
+
+# 后端测试
+cd ../backend
+./gradlew test
+
+# 后端发布 jar
+./gradlew bootJar
+```
+
+构建产物：
+
+- 前端：`frontend/dist/`
+- 后端：`backend/build/libs/*.jar`
+
 ## 📊 数据库设计
 
 | 表名 | 说明 |
@@ -123,9 +151,16 @@ npm run dev
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
-| `DB_USERNAME` | 数据库用户名 | root |
-| `DB_PASSWORD` | 数据库密码 | - |
-| `JWT_SECRET` | JWT 密钥 | - |
+| `DB_PASSWORD` | MySQL 用户 `plant_cultivation` 的密码 | 必填 |
+| `JWT_SECRET` | JWT 密钥，生产环境必须使用高强度随机字符串 | 必填 |
+| `UPLOAD_DIR` | 图片上传目录 | `/www/wwwroot/uploads` |
+| `RUN_DB_PATCHES` | 部署时是否自动执行补丁 SQL | `1` |
+
+线上 `.env` 建议放在：
+
+```bash
+/www/wwwroot/plant-cultivation/.env
+```
 
 ### API 接口
 
@@ -139,4 +174,44 @@ npm run dev
 | GET | `/api/posts` | 获取帖子列表 | 否 |
 | POST | `/api/posts` | 发布帖子 | 是 |
 
+## 🚢 宝塔部署
+
+线上部署约定详见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+
+核心目录：
+
+```text
+/www/wwwroot/plant-cultivation/
+├── backend/app.jar
+├── backend/app.jar.new
+├── frontend/dist/
+├── frontend-new/ 或 frontend/frontend-new/
+├── scripts/fill_missing_care_guides.sql
+├── deploy.sh
+└── .env
+```
+
+常用命令：
+
+```bash
+systemctl status plant-cultivation
+systemctl restart plant-cultivation
+journalctl -u plant-cultivation -f
+tail -f /www/wwwroot/plant-cultivation/deploy.log
+ss -lntp | grep -E ':80|:443|:8080'
+```
+
+`frontend-new` 是部署脚本用于临时接收新前端包的目录。部署成功后会被移动为 `frontend/dist`，正常情况下不会长期保留。
+
+## ✅ 最近验证
+
+- `npm run build`：通过
+- `./gradlew test`：通过
+- `./gradlew bootJar`：通过
+
+> 当前 Sass 仍会提示 `@import "tailwindcss"` 弃用警告，不影响构建和线上运行。
+
+## 📝 License
+
+MIT License
 
