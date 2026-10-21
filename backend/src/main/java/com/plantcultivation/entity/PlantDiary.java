@@ -11,7 +11,7 @@ public class PlantDiary {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String userAccount;
+    private Long userId;
     private String plantSlug;
     private String plantName;
     private String title;

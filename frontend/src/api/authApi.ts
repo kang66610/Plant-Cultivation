@@ -31,6 +31,21 @@ export function updateProfile(payload: { username: string; bio: string; avatarUr
   return request.put<unknown, ApiResponse<User>>('/auth/profile', payload)
 }
 
+/**
+ * 修改密码：服务端会轮换令牌版本（旧 token 全部失效）并返回新 token。
+ */
 export function changePassword(payload: { oldPassword: string; newPassword: string }) {
-  return request.put<unknown, ApiResponse<void>>('/auth/password', payload)
+  return request.put<unknown, ApiResponse<{ token: string }>>('/auth/password', payload)
+}
+
+/**
+ * 服务端登出：令当前账号的令牌版本自增，使已签发的 JWT 立即失效。
+ * 显式传入 token，因为本地状态在发起请求前就已清理。
+ */
+export function logout(token: string) {
+  return request.post<unknown, ApiResponse<void>>(
+    '/auth/logout',
+    undefined,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
 }

@@ -9,8 +9,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,19 +32,20 @@ class PlantDiaryServiceTest {
 
     @Test
     @SuppressWarnings({"rawtypes", "unchecked"})
-    void getDiaryFiltersByIdAndAccount() {
+    void getDiaryFiltersByIdAndUserId() {
         PlantDiary diary = new PlantDiary();
         diary.setId(10L);
-        diary.setUserAccount("alice");
+        diary.setUserId(7L);
         when(diaryMapper.selectOne(any(QueryWrapper.class))).thenReturn(diary);
 
         User user = new User();
+        user.setId(7L);
         user.setAccount("alice");
         user.setUsername("Alice");
         user.setAvatarUrl("/uploads/a.jpg");
-        when(userMapper.selectByAccounts(List.of("alice"))).thenReturn(List.of(user));
+        when(userMapper.selectById(7L)).thenReturn(user);
 
-        PlantDiary result = service.getDiary(10L, "alice");
+        PlantDiary result = service.getDiary(10L, 7L);
 
         assertNotNull(result);
         assertEquals("Alice", result.getUsername());
@@ -56,6 +55,6 @@ class PlantDiaryServiceTest {
         verify(diaryMapper).selectOne(captor.capture());
         String sql = captor.getValue().getSqlSegment();
         assertTrue(sql.contains("id"));
-        assertTrue(sql.contains("user_account"));
+        assertTrue(sql.contains("user_id"));
     }
 }

@@ -37,11 +37,11 @@ public class PostController {
             @RequestParam(required = false) Long cursorId) {
         page = Math.max(page, 1);
         size = Math.min(Math.max(size, 1), 100);
-        String currentUser = SecurityUtil.currentAccount();
+        Long currentUserId = SecurityUtil.currentUserId();
 
         if (cursorCreatedAt != null && cursorId != null) {
             List<Post> records = postService.listPostsAfterCursor(
-                    size + 1, categorySlug, keyword, currentUser, cursorCreatedAt, cursorId);
+                    size + 1, categorySlug, keyword, currentUserId, cursorCreatedAt, cursorId);
             boolean hasMore = records.size() > size;
             if (hasMore) {
                 records = records.subList(0, size);
@@ -55,7 +55,7 @@ public class PostController {
                     next == null || next.getCreatedAt() == null ? null : next.getCreatedAt().toString()));
         }
 
-        Page<Post> result = postService.listPosts(page, size, categorySlug, keyword, currentUser);
+        Page<Post> result = postService.listPosts(page, size, categorySlug, keyword, currentUserId);
         return ResultVO.success(PageResultVO.of(
                 result.getRecords(),
                 result.getTotal(),
@@ -65,9 +65,8 @@ public class PostController {
 
     @PostMapping
     public ResultVO<Post> createPost(@Valid @RequestBody CreatePostRequest body) {
-        String account = requireLogin();
         Post post = new Post();
-        post.setUserAccount(account);
+        post.setUserId(requireLogin());
         post.setContent(body.content());
         post.setImages(blankToNull(body.images()));
         post.setPlantSlug(blankToNull(body.plantSlug()));
@@ -77,15 +76,13 @@ public class PostController {
 
     @DeleteMapping("/{postId}")
     public ResultVO<Void> deletePost(@PathVariable Long postId) {
-        String account = requireLogin();
-        postService.deletePost(postId, account);
+        postService.deletePost(postId, requireLogin());
         return ResultVO.success();
     }
 
     @PostMapping("/{postId}/like")
     public ResultVO<Map<String, Boolean>> toggleLike(@PathVariable Long postId) {
-        String account = requireLogin();
-        boolean liked = postService.toggleLike(postId, account);
+        boolean liked = postService.toggleLike(postId, requireLogin());
         return ResultVO.success(Map.of("liked", liked));
     }
 
@@ -107,17 +104,16 @@ public class PostController {
     @PostMapping("/{postId}/comments")
     public ResultVO<PostComment> addComment(@PathVariable Long postId,
                                             @Valid @RequestBody CreateCommentRequest body) {
-        String account = requireLogin();
-        PostComment comment = postService.addComment(postId, account, body.content());
+        PostComment comment = postService.addComment(postId, requireLogin(), body.content());
         return ResultVO.success(comment);
     }
 
-    private String requireLogin() {
-        String account = SecurityUtil.currentAccount();
-        if (account == null) {
+    private Long requireLogin() {
+        Long userId = SecurityUtil.currentUserId();
+        if (userId == null) {
             throw new BusinessException("请先登录", 401);
         }
-        return account;
+        return userId;
     }
 
     private String blankToNull(String value) {

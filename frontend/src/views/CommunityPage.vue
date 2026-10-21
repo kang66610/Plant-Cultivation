@@ -450,7 +450,7 @@ onUnmounted(() => {
             <button v-if="post.plantSlug" class="post-card__tag" @click="goToPlant(post.plantSlug)">
               {{ postPlantName(post) }}
             </button>
-            <button v-if="auth.isLoggedIn && auth.user?.account === post.userAccount"
+            <button v-if="auth.isLoggedIn && auth.user?.id === post.userId"
               class="post-card__delete" @click="deletePost(post.id)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
             </button>

@@ -517,7 +517,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
                     <h3 class="diary__card-title">{{ entry.title }}</h3>
                     <div class="diary__card-actions">
                       <button
-                        v-if="entry.userAccount === auth.user?.account"
+                        v-if="entry.userId === auth.user?.id"
                         class="diary__icon-btn diary__icon-btn--edit"
                         @click="editDiary(entry)"
                         :title="uiText('编辑', 'Edit')"
@@ -540,7 +540,7 @@ watch(() => auth.isLoggedIn, (loggedIn) => {
                         </svg>
                       </button>
                       <button
-                        v-if="entry.userAccount === auth.user?.account"
+                        v-if="entry.userId === auth.user?.id"
                         class="diary__icon-btn diary__icon-btn--delete"
                         @click="deleteDiary(entry.id)"
                         :title="t('diary.delete')"

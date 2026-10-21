@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -22,18 +23,18 @@ public class PlantDiaryService {
     private final PlantDiaryMapper diaryMapper;
     private final UserMapper userMapper;
 
-    public Page<PlantDiary> listMyDiaries(String account, int page, int size) {
+    public Page<PlantDiary> listMyDiaries(Long userId, int page, int size) {
         Page<PlantDiary> pageObj = new Page<>(page, size);
         QueryWrapper<PlantDiary> qw = new QueryWrapper<>();
-        qw.eq("user_account", account).orderByDesc("created_at");
+        qw.eq("user_id", userId).orderByDesc("created_at");
         Page<PlantDiary> result = diaryMapper.selectPage(pageObj, qw);
         enrichDiaries(result.getRecords());
         return result;
     }
 
-    public PlantDiary getDiary(Long id, String account) {
+    public PlantDiary getDiary(Long id, Long userId) {
         QueryWrapper<PlantDiary> qw = new QueryWrapper<>();
-        qw.eq("id", id).eq("user_account", account);
+        qw.eq("id", id).eq("user_id", userId);
         PlantDiary diary = diaryMapper.selectOne(qw);
         if (diary != null) {
             enrichDiary(diary);
@@ -49,8 +50,8 @@ public class PlantDiaryService {
     }
 
     @Transactional
-    public PlantDiary updateDiary(Long id, String account, PlantDiary changes) {
-        PlantDiary diary = getDiary(id, account);
+    public PlantDiary updateDiary(Long id, Long userId, PlantDiary changes) {
+        PlantDiary diary = getDiary(id, userId);
         if (diary == null) {
             throw new BusinessException("日记不存在", 404);
         }
@@ -70,9 +71,9 @@ public class PlantDiaryService {
     }
 
     @Transactional
-    public void deleteDiary(Long id, String account) {
+    public void deleteDiary(Long id, Long userId) {
         PlantDiary diary = diaryMapper.selectById(id);
-        if (diary == null || !diary.getUserAccount().equals(account)) {
+        if (diary == null || !Objects.equals(diary.getUserId(), userId)) {
             throw new BusinessException("无权删除", 403);
         }
         diaryMapper.deleteById(id);
@@ -82,15 +83,15 @@ public class PlantDiaryService {
         if (diaries.isEmpty()) return;
 
         // 批量查询所有日记作者的用户信息（N+1 → 1次查询）
-        List<String> accounts = diaries.stream()
-                .map(PlantDiary::getUserAccount)
+        List<Long> userIds = diaries.stream()
+                .map(PlantDiary::getUserId)
                 .distinct()
                 .collect(Collectors.toList());
-        Map<String, User> userMap = userMapper.selectByAccounts(accounts).stream()
-                .collect(Collectors.toMap(User::getAccount, u -> u));
+        Map<Long, User> userMap = userMapper.selectUsersByIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
 
         for (PlantDiary d : diaries) {
-            User user = userMap.get(d.getUserAccount());
+            User user = userMap.get(d.getUserId());
             if (user != null) {
                 d.setUsername(user.getUsername());
                 d.setAvatarUrl(user.getAvatarUrl());
@@ -99,10 +100,10 @@ public class PlantDiaryService {
     }
 
     private void enrichDiary(PlantDiary diary) {
-        List<User> users = userMapper.selectByAccounts(List.of(diary.getUserAccount()));
-        if (!users.isEmpty()) {
-            diary.setUsername(users.get(0).getUsername());
-            diary.setAvatarUrl(users.get(0).getAvatarUrl());
+        User user = userMapper.selectById(diary.getUserId());
+        if (user != null) {
+            diary.setUsername(user.getUsername());
+            diary.setAvatarUrl(user.getAvatarUrl());
         }
     }
 }

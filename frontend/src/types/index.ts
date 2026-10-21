@@ -64,7 +64,7 @@ export interface PlantCollection {
 
 export interface Post {
   id: number
-  userAccount: string
+  userId: number
   content: string
   images: string | null
   plantSlug: string | null
@@ -81,7 +81,7 @@ export interface Post {
 export interface PostComment {
   id: number
   postId: number
-  userAccount: string
+  userId: number
   content: string
   createdAt: string
   username: string
@@ -90,7 +90,7 @@ export interface PostComment {
 
 export interface Diary {
   id: number
-  userAccount: string
+  userId: number
   plantSlug?: string
   plantName?: string
   title: string

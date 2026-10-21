@@ -12,7 +12,7 @@ public class PostLike {
     private Long id;
 
     private Long postId;
-    private String userAccount;
+    private Long userId;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

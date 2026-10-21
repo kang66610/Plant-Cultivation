@@ -97,12 +97,27 @@ public class AuthController {
     }
 
     @PutMapping("/password")
-    public ResultVO<Void> changePassword(@Valid @RequestBody ChangePasswordRequest body) {
+    public ResultVO<Map<String, String>> changePassword(@Valid @RequestBody ChangePasswordRequest body) {
         String account = SecurityUtil.currentAccount();
         if (account == null) {
             throw new BusinessException("未登录", 401);
         }
-        authService.changePassword(account, body.oldPassword(), body.newPassword());
+        // 改密会使所有旧令牌失效，这里把新令牌返回给当前设备，避免用户被迫重新登录
+        String token = authService.changePassword(account, body.oldPassword(), body.newPassword());
+        return ResultVO.success(Map.of("token", token));
+    }
+
+    /**
+     * 登出：令服务端令牌版本自增，当前令牌（及其他设备）立即失效。
+     * 前端即使不调用也不会造成安全问题，但调用后旧 token 无法再被重放。
+     */
+    @PostMapping("/logout")
+    public ResultVO<Void> logout() {
+        String account = SecurityUtil.currentAccount();
+        if (account == null) {
+            throw new BusinessException("未登录", 401);
+        }
+        authService.logout(account);
         return ResultVO.success();
     }
 }

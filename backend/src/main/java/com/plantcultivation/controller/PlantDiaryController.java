@@ -45,7 +45,7 @@ public class PlantDiaryController {
     @PostMapping
     public ResultVO<PlantDiary> createDiary(@Valid @RequestBody CreateDiaryRequest body) {
         PlantDiary diary = toEntity(body);
-        diary.setUserAccount(requireLogin());
+        diary.setUserId(requireLogin());
         return ResultVO.success(diaryService.createDiary(diary));
     }
 
@@ -61,12 +61,12 @@ public class PlantDiaryController {
         return ResultVO.success();
     }
 
-    private String requireLogin() {
-        String account = SecurityUtil.currentAccount();
-        if (account == null) {
+    private Long requireLogin() {
+        Long userId = SecurityUtil.currentUserId();
+        if (userId == null) {
             throw new BusinessException("请先登录", 401);
         }
-        return account;
+        return userId;
     }
 
     private PlantDiary toEntity(CreateDiaryRequest body) {

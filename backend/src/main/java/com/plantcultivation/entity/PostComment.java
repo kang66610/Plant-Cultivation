@@ -12,7 +12,7 @@ public class PostComment {
     private Long id;
 
     private Long postId;
-    private String userAccount;
+    private Long userId;
     private String content;
 
     @TableField(fill = FieldFill.INSERT)

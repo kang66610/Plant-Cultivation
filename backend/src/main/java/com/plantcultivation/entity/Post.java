@@ -11,7 +11,7 @@ public class Post {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String userAccount;
+    private Long userId;
     private String content;
     private String images;
     private String plantSlug;

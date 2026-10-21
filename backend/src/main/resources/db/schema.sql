@@ -1,5 +1,7 @@
--- Plant Cultivation Database Schema
--- 由 scripts/rebuild-sql.py 从 plant_cultivation.sql（生产 dump）重建，勿手工编辑
+-- Plant Cultivation Database Schema（全新安装的权威定义）
+-- 基础表由 scripts/rebuild-sql.py 从 plant_cultivation.sql（生产 dump）重建；
+-- 用户标识统一为 user_id、token_version、login_attempt 属于应用层演进，
+-- 若重新生成本文件，需要再执行 scripts/migrations/ 下的迁移脚本。
 
 CREATE DATABASE IF NOT EXISTS plant_cultivation
     CHARACTER SET utf8mb4
@@ -133,6 +135,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `avatar_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `bio` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `token_version` int NOT NULL DEFAULT '0' COMMENT '令牌版本：登出/改密自增使旧 JWT 失效',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -168,7 +171,7 @@ CREATE TABLE IF NOT EXISTS `care_guide` (
 
 CREATE TABLE IF NOT EXISTS `plant_diary` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `user_account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` bigint NOT NULL,
   `plant_slug` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `plant_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `title` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -182,15 +185,15 @@ CREATE TABLE IF NOT EXISTS `plant_diary` (
   `leaf_count` smallint DEFAULT NULL,
   `growth_stage` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_user` (`user_account`),
+  KEY `idx_user` (`user_id`),
   KEY `idx_plant` (`plant_slug`),
   KEY `idx_created` (`created_at` DESC),
-  CONSTRAINT `plant_diary_ibfk_1` FOREIGN KEY (`user_account`) REFERENCES `user` (`account`) ON DELETE CASCADE
+  CONSTRAINT `plant_diary_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `post` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `user_account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` bigint NOT NULL,
   `content` text COLLATE utf8mb4_unicode_ci NOT NULL,
   `images` json DEFAULT NULL,
   `plant_slug` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -200,36 +203,36 @@ CREATE TABLE IF NOT EXISTS `post` (
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_user` (`user_account`),
+  KEY `idx_user` (`user_id`),
   KEY `idx_plant` (`plant_slug`),
   KEY `idx_created` (`created_at` DESC),
   KEY `idx_category` (`category_slug`),
-  CONSTRAINT `post_ibfk_1` FOREIGN KEY (`user_account`) REFERENCES `user` (`account`) ON DELETE CASCADE
+  CONSTRAINT `post_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `post_comment` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `post_id` bigint NOT NULL,
-  `user_account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` bigint NOT NULL,
   `content` text COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `user_account` (`user_account`),
+  KEY `user_id` (`user_id`),
   KEY `idx_post` (`post_id`),
   CONSTRAINT `post_comment_ibfk_1` FOREIGN KEY (`post_id`) REFERENCES `post` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `post_comment_ibfk_2` FOREIGN KEY (`user_account`) REFERENCES `user` (`account`) ON DELETE CASCADE
+  CONSTRAINT `post_comment_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `post_like` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `post_id` bigint NOT NULL,
-  `user_account` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` bigint NOT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_post_user` (`post_id`,`user_account`),
-  KEY `user_account` (`user_account`),
+  UNIQUE KEY `uk_post_user` (`post_id`,`user_id`),
+  KEY `user_id` (`user_id`),
   CONSTRAINT `post_like_ibfk_1` FOREIGN KEY (`post_id`) REFERENCES `post` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `post_like_ibfk_2` FOREIGN KEY (`user_account`) REFERENCES `user` (`account`) ON DELETE CASCADE
+  CONSTRAINT `post_like_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `user_plant_collection` (
@@ -248,4 +251,13 @@ CREATE TABLE IF NOT EXISTS `user_plant_collection` (
   KEY `plant_id` (`plant_id`),
   CONSTRAINT `user_plant_collection_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
   CONSTRAINT `user_plant_collection_ibfk_2` FOREIGN KEY (`plant_id`) REFERENCES `plant` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 登录失败限流：持久化滑动窗口，多实例共享（每行一次失败，定时清理 24 小时前记录）
+CREATE TABLE IF NOT EXISTS `login_attempt` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `rate_key` varchar(190) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '限流维度：account:xxx / ip:x.x.x.x',
+  `attempted_at` datetime(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_key_time` (`rate_key`,`attempted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

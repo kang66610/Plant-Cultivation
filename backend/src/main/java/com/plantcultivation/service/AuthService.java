@@ -8,6 +8,7 @@ import com.plantcultivation.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +34,7 @@ public class AuthService {
         user.setUsername(username);
         user.setAccount(account);
         user.setPassword(passwordEncoder.encode(password));
+        user.setTokenVersion(0);
         try {
             userMapper.insert(user);
         } catch (org.springframework.dao.DuplicateKeyException e) {
@@ -48,12 +50,19 @@ public class AuthService {
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BusinessException("密码错误", 401);
         }
-        String token = jwtUtil.generateToken(account);
+        String token = issueToken(user);
         Map<String, Object> result = new HashMap<>();
         result.put("token", token);
         user.setPassword(null);
         result.put("user", user);
         return result;
+    }
+
+    /**
+     * 服务端登出：账号的令牌版本自增，已签发的 JWT 立即失效（含其他设备）。
+     */
+    public void logout(String account) {
+        userMapper.incrementTokenVersion(account);
     }
 
     /**
@@ -85,7 +94,13 @@ public class AuthService {
         return user;
     }
 
-    public void changePassword(String account, String oldPassword, String newPassword) {
+    /**
+     * 修改密码：密码更新后令牌版本自增，让所有旧会话失效，并为当前设备补发新令牌。
+     *
+     * @return 使用新令牌版本签发的 JWT（前端替换本地 token，无需强制重新登录）
+     */
+    @Transactional
+    public String changePassword(String account, String oldPassword, String newPassword) {
         if (newPassword == null || newPassword.length() < 6) {
             throw new BusinessException("新密码长度不能少于6位", 400);
         }
@@ -95,5 +110,13 @@ public class AuthService {
         }
         user.setPassword(passwordEncoder.encode(newPassword));
         userMapper.updateById(user);
+        // 必须在密码更新之后自增，否则 updateById 会用旧版本号覆盖
+        userMapper.incrementTokenVersion(account);
+        return issueToken(getUserByAccount(account));
+    }
+
+    private String issueToken(User user) {
+        int version = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
+        return jwtUtil.generateToken(user.getId(), user.getAccount(), version);
     }
 }

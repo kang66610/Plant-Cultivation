@@ -31,7 +31,7 @@ public class PostService {
     private final UserMapper userMapper;
     private final PlantMapper plantMapper;
 
-    public Page<Post> listPosts(int page, int size, String categorySlug, String keyword, String currentUser) {
+    public Page<Post> listPosts(int page, int size, String categorySlug, String keyword, Long currentUserId) {
         Page<Post> pageObj = new Page<>(page, size);
         QueryWrapper<Post> qw = new QueryWrapper<>();
         if (categorySlug != null && !categorySlug.isBlank()) {
@@ -43,12 +43,12 @@ public class PostService {
         }
         qw.orderByDesc("created_at").orderByDesc("id");
         Page<Post> result = postMapper.selectPage(pageObj, qw);
-        enrichPosts(result.getRecords(), currentUser);
+        enrichPosts(result.getRecords(), currentUserId);
         return result;
     }
 
     public List<Post> listPostsAfterCursor(int limit, String categorySlug, String keyword,
-                                           String currentUser, LocalDateTime cursorCreatedAt,
+                                           Long currentUserId, LocalDateTime cursorCreatedAt,
                                            Long cursorId) {
         QueryWrapper<Post> qw = new QueryWrapper<>();
         if (categorySlug != null && !categorySlug.isBlank()) {
@@ -65,7 +65,7 @@ public class PostService {
         qw.orderByDesc("created_at").orderByDesc("id");
         qw.last("LIMIT " + Math.max(1, Math.min(limit, 101)));
         List<Post> posts = postMapper.selectList(qw);
-        enrichPosts(posts, currentUser);
+        enrichPosts(posts, currentUserId);
         return posts;
     }
 
@@ -74,9 +74,94 @@ public class PostService {
         post.setLikeCount(0);
         post.setCommentCount(0);
         postMapper.insert(post);
+        enrichPost(post);
+        post.setLiked(false);
+        return post;
+    }
 
-        // 批量查询用户信息
-        List<User> users = userMapper.selectByAccounts(List.of(post.getUserAccount()));
+    @Transactional
+    public void deletePost(Long postId, Long userId) {
+        Post post = postMapper.selectById(postId);
+        if (post == null || !Objects.equals(post.getUserId(), userId)) {
+            throw new BusinessException("无权删除", 403);
+        }
+        postMapper.deleteById(postId);
+    }
+
+    @Transactional
+    public boolean toggleLike(Long postId, Long userId) {
+        if (postMapper.selectById(postId) == null) return false;
+
+        QueryWrapper<PostLike> qw = new QueryWrapper<>();
+        qw.eq("post_id", postId).eq("user_id", userId);
+        // 先尝试删除：影响行数 > 0 说明本次确实取消了点赞（并发下 delete 是原子的，不会重复减计数）
+        int deleted = postLikeMapper.delete(qw);
+        if (deleted > 0) {
+            postMapper.incrementLikeCount(postId, -1);
+            return false;
+        }
+        // 未找到点赞记录 → 执行点赞；并发下可能撞 uk_post_user 唯一键，捕获后按"已点赞"处理
+        PostLike like = new PostLike();
+        like.setPostId(postId);
+        like.setUserId(userId);
+        try {
+            postLikeMapper.insert(like);
+            postMapper.incrementLikeCount(postId, 1);
+            return true;
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            return true; // 并发下已存在，视为点赞成功
+        }
+    }
+
+    @Transactional
+    public PostComment addComment(Long postId, Long userId, String content) {
+        if (postMapper.selectById(postId) == null) {
+            throw new BusinessException("帖子不存在", 404);
+        }
+        PostComment comment = new PostComment();
+        comment.setPostId(postId);
+        comment.setUserId(userId);
+        comment.setContent(content);
+        postCommentMapper.insert(comment);
+
+        postMapper.incrementCommentCount(postId, 1);
+
+        // 评论者只有当前用户，单条查询即可
+        User user = userMapper.selectById(userId);
+        if (user != null) {
+            comment.setUsername(user.getUsername());
+            comment.setAvatarUrl(user.getAvatarUrl());
+        }
+        return comment;
+    }
+
+    public Page<PostComment> listComments(Long postId, int page, int size) {
+        Page<PostComment> pageObj = new Page<>(page, size);
+        QueryWrapper<PostComment> qw = new QueryWrapper<>();
+        qw.eq("post_id", postId).orderByAsc("created_at");
+        Page<PostComment> result = postCommentMapper.selectPage(pageObj, qw);
+
+        // 批量查询所有评论者的用户信息
+        List<Long> userIds = result.getRecords().stream()
+                .map(PostComment::getUserId)
+                .distinct()
+                .collect(Collectors.toList());
+        if (!userIds.isEmpty()) {
+            Map<Long, User> userMap = userMapper.selectUsersByIds(userIds).stream()
+                    .collect(Collectors.toMap(User::getId, u -> u));
+            for (PostComment c : result.getRecords()) {
+                User user = userMap.get(c.getUserId());
+                if (user != null) {
+                    c.setUsername(user.getUsername());
+                    c.setAvatarUrl(user.getAvatarUrl());
+                }
+            }
+        }
+        return result;
+    }
+
+    private void enrichPost(Post post) {
+        List<User> users = userMapper.selectUsersByIds(List.of(post.getUserId()));
         if (!users.isEmpty()) {
             post.setUsername(users.get(0).getUsername());
             post.setAvatarUrl(users.get(0).getAvatarUrl());
@@ -89,101 +174,18 @@ public class PostService {
                 post.setPlantName(plant.getCommonName());
             }
         }
-        post.setLiked(false);
-        return post;
     }
 
-    @Transactional
-    public void deletePost(Long postId, String account) {
-        Post post = postMapper.selectById(postId);
-        if (post == null || !post.getUserAccount().equals(account)) {
-            throw new BusinessException("无权删除", 403);
-        }
-        postMapper.deleteById(postId);
-    }
-
-    @Transactional
-    public boolean toggleLike(Long postId, String account) {
-        if (postMapper.selectById(postId) == null) return false;
-
-        QueryWrapper<PostLike> qw = new QueryWrapper<>();
-        qw.eq("post_id", postId).eq("user_account", account);
-        // 先尝试删除：影响行数 > 0 说明本次确实取消了点赞（并发下 delete 是原子的，不会重复减计数）
-        int deleted = postLikeMapper.delete(qw);
-        if (deleted > 0) {
-            postMapper.incrementLikeCount(postId, -1);
-            return false;
-        }
-        // 未找到点赞记录 → 执行点赞；并发下可能撞 uk_post_user 唯一键，捕获后按"已点赞"处理
-        PostLike like = new PostLike();
-        like.setPostId(postId);
-        like.setUserAccount(account);
-        try {
-            postLikeMapper.insert(like);
-            postMapper.incrementLikeCount(postId, 1);
-            return true;
-        } catch (org.springframework.dao.DuplicateKeyException e) {
-            return true; // 并发下已存在，视为点赞成功
-        }
-    }
-
-    @Transactional
-    public PostComment addComment(Long postId, String account, String content) {
-        if (postMapper.selectById(postId) == null) {
-            throw new BusinessException("帖子不存在", 404);
-        }
-        PostComment comment = new PostComment();
-        comment.setPostId(postId);
-        comment.setUserAccount(account);
-        comment.setContent(content);
-        postCommentMapper.insert(comment);
-
-        postMapper.incrementCommentCount(postId, 1);
-
-        // 批量查询用户信息
-        List<User> users = userMapper.selectByAccounts(List.of(account));
-        if (!users.isEmpty()) {
-            comment.setUsername(users.get(0).getUsername());
-            comment.setAvatarUrl(users.get(0).getAvatarUrl());
-        }
-        return comment;
-    }
-
-    public Page<PostComment> listComments(Long postId, int page, int size) {
-        Page<PostComment> pageObj = new Page<>(page, size);
-        QueryWrapper<PostComment> qw = new QueryWrapper<>();
-        qw.eq("post_id", postId).orderByAsc("created_at");
-        Page<PostComment> result = postCommentMapper.selectPage(pageObj, qw);
-
-        // 批量查询所有评论者的用户信息
-        List<String> accounts = result.getRecords().stream()
-                .map(PostComment::getUserAccount)
-                .distinct()
-                .collect(Collectors.toList());
-        if (!accounts.isEmpty()) {
-            Map<String, User> userMap = userMapper.selectByAccounts(accounts).stream()
-                    .collect(Collectors.toMap(User::getAccount, u -> u));
-            for (PostComment c : result.getRecords()) {
-                User user = userMap.get(c.getUserAccount());
-                if (user != null) {
-                    c.setUsername(user.getUsername());
-                    c.setAvatarUrl(user.getAvatarUrl());
-                }
-            }
-        }
-        return result;
-    }
-
-    private void enrichPosts(List<Post> posts, String currentUser) {
+    private void enrichPosts(List<Post> posts, Long currentUserId) {
         // 批量查询所有发帖者的用户信息
-        List<String> accounts = posts.stream()
-                .map(Post::getUserAccount)
+        List<Long> userIds = posts.stream()
+                .map(Post::getUserId)
                 .distinct()
                 .collect(Collectors.toList());
-        Map<String, User> userMap = Collections.emptyMap();
-        if (!accounts.isEmpty()) {
-            userMap = userMapper.selectByAccounts(accounts).stream()
-                    .collect(Collectors.toMap(User::getAccount, u -> u));
+        Map<Long, User> userMap = Collections.emptyMap();
+        if (!userIds.isEmpty()) {
+            userMap = userMapper.selectUsersByIds(userIds).stream()
+                    .collect(Collectors.toMap(User::getId, u -> u));
         }
 
         // 批量查询所有关联植物
@@ -202,17 +204,17 @@ public class PostService {
 
         // 批量查询当前用户的点赞状态
         Set<Long> likedPostIds = Collections.emptySet();
-        if (currentUser != null && !posts.isEmpty()) {
+        if (currentUserId != null && !posts.isEmpty()) {
             List<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toList());
             QueryWrapper<PostLike> lqw = new QueryWrapper<>();
-            lqw.eq("user_account", currentUser).in("post_id", postIds);
+            lqw.eq("user_id", currentUserId).in("post_id", postIds);
             likedPostIds = postLikeMapper.selectList(lqw).stream()
                     .map(PostLike::getPostId)
                     .collect(Collectors.toSet());
         }
 
         for (Post p : posts) {
-            User user = userMap.get(p.getUserAccount());
+            User user = userMap.get(p.getUserId());
             if (user != null) {
                 p.setUsername(user.getUsername());
                 p.setAvatarUrl(user.getAvatarUrl());

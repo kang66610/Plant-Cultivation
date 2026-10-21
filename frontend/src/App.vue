@@ -12,12 +12,13 @@ const auth = useAuthStore()
 useBackendAutoReload()
 
 function handleAuthExpired() {
-  auth.logout()
+  // 令牌已被服务端判定失效（过期 / 版本变化），只需清理本地状态，无需再请求登出接口
+  auth.clearSession()
 }
 
 onMounted(() => {
   auth.init()
-  // request.ts 在 401 时派发的事件：同步登出（提示已在拦截器里展示）
+  // request.ts 在 401 时派发的事件：同步清理本地会话（提示已在拦截器里展示）
   window.addEventListener('auth:expired', handleAuthExpired)
 })
 
